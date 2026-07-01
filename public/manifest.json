@@ -1,0 +1,22 @@
+{
+  "name": "旅路 — AI 行程規劃",
+  "short_name": "旅路",
+  "description": "以 AI 為核心的旅遊行程規劃 App",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF7F2",
+  "theme_color": "#E8825A",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
