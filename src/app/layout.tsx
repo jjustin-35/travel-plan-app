@@ -1,11 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "旅路 — AI 行程規劃",
@@ -31,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-TW" className={`${geistSans.variable} h-full`}>
+    <html lang="zh-TW" className="h-full">
       <body className="min-h-full bg-cream text-charcoal antialiased">
         {children}
       </body>
