@@ -2,9 +2,10 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TimelineView } from "@/components/trip/TimelineView";
 import { LoadingAnimation } from "@/components/trip/LoadingAnimation";
+import { EditEventModal } from "@/components/trip/EditEventModal";
 import { createClient } from "@/lib/supabase/client";
 
 type TripEvent = {
@@ -42,19 +43,48 @@ async function fetchTrip(id: string): Promise<Trip> {
   return data.trip;
 }
 
+async function batchUpdateEvents(
+  tripId: string,
+  dayId: string,
+  events: TripEvent[]
+) {
+  await fetch(`/api/trips/${tripId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dayId, events }),
+  });
+}
+
 export default function TripDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+
   const [activeDay, setActiveDay] = useState(1);
+  const [localDays, setLocalDays] = useState<TripDay[]>([]);
+  const [editingEvent, setEditingEvent] = useState<TripEvent | null>(null);
+  const [addingForDay, setAddingForDay] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const debounceTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const { data: trip, isLoading, isError } = useQuery({
     queryKey: ["trip", id],
     queryFn: () => fetchTrip(id),
-    refetchInterval: (query) => {
-      return query.state.data?.status === "generating" ? 3000 : false;
-    },
+    refetchInterval: (query) =>
+      query.state.data?.status === "generating" ? 3000 : false,
   });
+
+  // Sync server data → local state (skip while user is editing)
+  useEffect(() => {
+    if (trip?.days) {
+      const days = trip.days.map((d) => ({
+        ...d,
+        date: new Date(d.date).toISOString().split("T")[0],
+      }));
+      setLocalDays(days);
+    }
+  }, [trip]);
 
   // Supabase Realtime: subscribe to trip status changes
   useEffect(() => {
@@ -74,11 +104,70 @@ export default function TripDetailPage() {
         }
       )
       .subscribe();
-
     return () => {
       supabase.removeChannel(channel);
     };
   }, [id, queryClient]);
+
+  /** Debounced batch update for a given day */
+  const scheduleBatchUpdate = useCallback(
+    (dayId: string, events: TripEvent[]) => {
+      const existing = debounceTimers.current.get(dayId);
+      if (existing) clearTimeout(existing);
+      const timer = setTimeout(async () => {
+        debounceTimers.current.delete(dayId);
+        setIsSaving(true);
+        await batchUpdateEvents(id, dayId, events).catch(console.error);
+        setIsSaving(false);
+      }, 800);
+      debounceTimers.current.set(dayId, timer);
+    },
+    [id]
+  );
+
+  const handleEventsChange = useCallback(
+    (dayId: string, events: TripEvent[]) => {
+      setLocalDays((prev) =>
+        prev.map((d) => (d.id === dayId ? { ...d, events } : d))
+      );
+      scheduleBatchUpdate(dayId, events);
+    },
+    [scheduleBatchUpdate]
+  );
+
+  const handleEditEvent = useCallback((event: TripEvent) => {
+    setEditingEvent(event);
+  }, []);
+
+  const handleAddEvent = useCallback((dayNumber: number) => {
+    setAddingForDay(dayNumber);
+  }, []);
+
+  const handleSaveEvent = useCallback(
+    (saved: TripEvent) => {
+      const isNew = addingForDay !== null;
+      const targetDayNumber = isNew ? addingForDay! : activeDay;
+      const targetDay = localDays.find((d) => d.dayNumber === targetDayNumber);
+      if (!targetDay) return;
+
+      let updatedEvents: TripEvent[];
+      if (isNew) {
+        updatedEvents = [
+          ...targetDay.events,
+          { ...saved, sortOrder: targetDay.events.length + 1 },
+        ];
+      } else {
+        updatedEvents = targetDay.events.map((e) =>
+          e.id === saved.id ? saved : e
+        );
+      }
+
+      handleEventsChange(targetDay.id, updatedEvents);
+      setEditingEvent(null);
+      setAddingForDay(null);
+    },
+    [localDays, addingForDay, activeDay, handleEventsChange]
+  );
 
   if (isLoading || trip?.status === "generating") {
     return <LoadingAnimation />;
@@ -118,19 +207,14 @@ export default function TripDetailPage() {
     );
   }
 
-  const days = trip.days.map((d) => ({
-    ...d,
-    date: new Date(d.date).toISOString().split("T")[0],
-  }));
-
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-cream">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-border">
         <div className="flex items-center gap-2">
           <button
             onClick={() => router.push("/")}
-            className="p-1 -ml-1 text-charcoal hover:text-coral transition-colors"
+            className="p-1 -ml-1 text-charcoal hover:text-coral transition-colors text-lg"
           >
             ←
           </button>
@@ -143,6 +227,9 @@ export default function TripDetailPage() {
         </div>
 
         <div className="flex items-center gap-1">
+          {isSaving && (
+            <span className="text-xs text-muted animate-pulse px-1">儲存中…</span>
+          )}
           <button
             onClick={async () => {
               await fetch(`/api/trips/${id}/regenerate`, { method: "POST" });
@@ -166,16 +253,37 @@ export default function TripDetailPage() {
       {/* Timeline */}
       <div className="flex-1 overflow-hidden">
         <TimelineView
-          days={days}
+          tripId={id}
+          days={localDays}
           activeDay={activeDay}
           onDayChange={setActiveDay}
+          onEventsChange={handleEventsChange}
+          onEditEvent={handleEditEvent}
+          onAddEvent={handleAddEvent}
         />
       </div>
 
-      {/* FAB */}
-      <button className="fixed bottom-6 right-6 w-14 h-14 bg-coral text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-wood transition-colors z-50">
+      {/* FAB: Add event */}
+      <button
+        onClick={() => handleAddEvent(activeDay)}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-coral text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-wood transition-all active:scale-95 z-40"
+        title="新增行程節點"
+      >
         +
       </button>
+
+      {/* Edit / Create Event Modal */}
+      {(editingEvent !== null || addingForDay !== null) && (
+        <EditEventModal
+          event={editingEvent}
+          isNew={addingForDay !== null}
+          onSave={handleSaveEvent}
+          onClose={() => {
+            setEditingEvent(null);
+            setAddingForDay(null);
+          }}
+        />
+      )}
     </div>
   );
 }
