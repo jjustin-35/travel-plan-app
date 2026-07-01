@@ -7,6 +7,7 @@ import { TimelineView } from "@/components/trip/TimelineView";
 import { LoadingAnimation } from "@/components/trip/LoadingAnimation";
 import { EditEventModal } from "@/components/trip/EditEventModal";
 import { createClient } from "@/lib/supabase/client";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
 
 type TripEvent = {
   id: string;
@@ -75,7 +76,7 @@ export default function TripDetailPage() {
       query.state.data?.status === "generating" ? 3000 : false,
   });
 
-  // Sync server data → local state (skip while user is editing)
+  // Sync server data → local state
   useEffect(() => {
     if (trip?.days) {
       const days = trip.days.map((d) => ({
@@ -85,6 +86,12 @@ export default function TripDetailPage() {
       setLocalDays(days);
     }
   }, [trip]);
+
+  // Offline sync integration
+  const { isOnline, hasPendingSync, saveEventsOffline } = useOfflineSync({
+    tripId: id,
+    trip: trip ?? null,
+  });
 
   // Supabase Realtime: subscribe to trip status changes
   useEffect(() => {
@@ -130,9 +137,11 @@ export default function TripDetailPage() {
       setLocalDays((prev) =>
         prev.map((d) => (d.id === dayId ? { ...d, events } : d))
       );
+      // Write to IDB immediately, then debounce remote sync
+      saveEventsOffline(dayId, events).catch(console.error);
       scheduleBatchUpdate(dayId, events);
     },
-    [scheduleBatchUpdate]
+    [scheduleBatchUpdate, saveEventsOffline]
   );
 
   const handleEditEvent = useCallback((event: TripEvent) => {
@@ -209,6 +218,19 @@ export default function TripDetailPage() {
 
   return (
     <div className="flex flex-col h-screen bg-cream">
+      {/* Offline / pending sync banner */}
+      {(!isOnline || hasPendingSync) && (
+        <div
+          className={[
+            "flex items-center justify-center gap-2 px-4 py-1.5 text-xs font-medium",
+            !isOnline
+              ? "bg-amber-100 text-amber-700"
+              : "bg-blue-50 text-blue-600",
+          ].join(" ")}
+        >
+          <span>{!isOnline ? "📴 離線模式 — 變更將在上線後同步" : "🔄 同步中…"}</span>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-border">
         <div className="flex items-center gap-2">

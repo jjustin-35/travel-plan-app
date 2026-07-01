@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { QueryProvider } from "@/components/ui/QueryProvider";
+import { ServiceWorkerRegistrar } from "@/components/ui/ServiceWorkerRegistrar";
 
 export const metadata: Metadata = {
   title: "旅路 — AI 行程規劃",
@@ -28,7 +29,10 @@ export default function RootLayout({
   return (
     <html lang="zh-TW" className="h-full">
       <body className="min-h-full bg-cream text-charcoal antialiased">
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          <ServiceWorkerRegistrar />
+          {children}
+        </QueryProvider>
       </body>
     </html>
   );

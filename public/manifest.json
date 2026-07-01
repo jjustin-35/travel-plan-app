@@ -3,20 +3,34 @@
   "short_name": "旅路",
   "description": "以 AI 為核心的旅遊行程規劃 App",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#FAF7F2",
   "theme_color": "#E8825A",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
+  "categories": ["travel", "productivity"],
+  "lang": "zh-TW",
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "規劃新行程",
+      "short_name": "新行程",
+      "description": "開始規劃一段新旅程",
+      "url": "/onboarding",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
