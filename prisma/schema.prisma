@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @db.Uuid
+  name      String?
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  trips          Trip[]
+  aiJobs         AIGenerationJob[]
+  createdShares  TripShare[]
+
+  @@map("users")
+}
+
+model Trip {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  title       String
+  destination String
+  peopleCount Int      @map("people_count")
+  tripType    String   @map("trip_type")
+  startDate   DateTime @map("start_date") @db.Date
+  endDate     DateTime @map("end_date") @db.Date
+  status      String   @default("generating") // generating | ready | failed
+  version     Int      @default(1)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  days    TripDay[]
+  aiJobs  AIGenerationJob[]
+  shares  TripShare[]
+
+  @@map("trips")
+}
+
+model TripDay {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @map("trip_id") @db.Uuid
+  dayNumber Int      @map("day_number")
+  date      DateTime @db.Date
+
+  trip   Trip        @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  events TripEvent[]
+
+  @@unique([tripId, dayNumber])
+  @@map("trip_days")
+}
+
+model TripEvent {
+  id              String   @id @default(uuid()) @db.Uuid
+  tripDayId       String   @map("trip_day_id") @db.Uuid
+  title           String
+  location        String
+  description     String
+  category        String
+  eventTime       String   @map("event_time") // HH:MM format
+  durationMinutes Int      @map("duration_minutes")
+  sortOrder       Int      @map("sort_order")
+  lat             Float
+  lng             Float
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  tripDay TripDay @relation(fields: [tripDayId], references: [id], onDelete: Cascade)
+
+  @@map("trip_events")
+}
+
+model AIGenerationJob {
+  id             String    @id @default(uuid()) @db.Uuid
+  tripId         String    @map("trip_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  idempotencyKey String    @unique @map("idempotency_key")
+  status         String    @default("pending") // pending | processing | done | failed
+  promptHash     String?   @map("prompt_hash")
+  promptInput    Json      @map("prompt_input")
+  errorMessage   String?   @map("error_message")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  completedAt    DateTime? @map("completed_at")
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ai_generation_jobs")
+}
+
+model TripShare {
+  id          String   @id @default(uuid()) @db.Uuid
+  tripId      String   @map("trip_id") @db.Uuid
+  shareToken  String   @unique @map("share_token")
+  permission  String   @default("view") // view | edit
+  createdBy   String   @map("created_by") @db.Uuid
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  trip    Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@map("trip_shares")
+}
