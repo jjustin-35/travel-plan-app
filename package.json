@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "worker": "ts-node -P worker/tsconfig.json --paths-transformer ./node_modules/tsconfig-paths/register worker/index.ts",
+    "worker:dev": "nodemon --watch worker --watch src/lib/schemas --ext ts --exec \"npm run worker\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.109.0",

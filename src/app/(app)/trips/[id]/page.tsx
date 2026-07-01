@@ -1,10 +1,11 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TimelineView } from "@/components/trip/TimelineView";
 import { LoadingAnimation } from "@/components/trip/LoadingAnimation";
+import { createClient } from "@/lib/supabase/client";
 
 type TripEvent = {
   id: string;
@@ -44,6 +45,7 @@ async function fetchTrip(id: string): Promise<Trip> {
 export default function TripDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [activeDay, setActiveDay] = useState(1);
 
   const { data: trip, isLoading, isError } = useQuery({
@@ -53,6 +55,30 @@ export default function TripDetailPage() {
       return query.state.data?.status === "generating" ? 3000 : false;
     },
   });
+
+  // Supabase Realtime: subscribe to trip status changes
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`trip:${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "trips",
+          filter: `id=eq.${id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["trip", id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, queryClient]);
 
   if (isLoading || trip?.status === "generating") {
     return <LoadingAnimation />;
@@ -73,13 +99,28 @@ export default function TripDetailPage() {
     );
   }
 
+  if (trip.status === "failed") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-8 text-center">
+        <div className="text-5xl mb-4">⚠️</div>
+        <p className="font-semibold text-charcoal">行程生成失敗</p>
+        <p className="text-sm text-muted mt-1">請點擊重新生成</p>
+        <button
+          onClick={async () => {
+            await fetch(`/api/trips/${id}/regenerate`, { method: "POST" });
+            queryClient.invalidateQueries({ queryKey: ["trip", id] });
+          }}
+          className="mt-4 bg-coral text-white px-6 py-2 rounded-full text-sm font-medium"
+        >
+          重新生成
+        </button>
+      </div>
+    );
+  }
+
   const days = trip.days.map((d) => ({
     ...d,
     date: new Date(d.date).toISOString().split("T")[0],
-    events: d.events.map((e) => ({
-      ...e,
-      eventTime: e.eventTime,
-    })),
   }));
 
   return (
@@ -101,20 +142,20 @@ export default function TripDetailPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button
             onClick={async () => {
               await fetch(`/api/trips/${id}/regenerate`, { method: "POST" });
-              router.refresh();
+              queryClient.invalidateQueries({ queryKey: ["trip", id] });
             }}
-            className="text-xs text-muted hover:text-coral transition-colors px-2 py-1"
+            className="p-2 text-muted hover:text-coral transition-colors rounded-xl hover:bg-butter"
             title="重新產生行程"
           >
             🔄
           </button>
           <button
             onClick={() => router.push(`/trips/${id}/share`)}
-            className="text-xs text-muted hover:text-coral transition-colors px-2 py-1"
+            className="p-2 text-muted hover:text-coral transition-colors rounded-xl hover:bg-butter"
             title="分享行程"
           >
             🔗
@@ -132,7 +173,7 @@ export default function TripDetailPage() {
       </div>
 
       {/* FAB */}
-      <button className="absolute bottom-6 right-6 w-14 h-14 bg-coral text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-wood transition-colors">
+      <button className="fixed bottom-6 right-6 w-14 h-14 bg-coral text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-wood transition-colors z-50">
         +
       </button>
     </div>
