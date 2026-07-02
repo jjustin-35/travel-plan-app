@@ -5,13 +5,13 @@
 ## 技術棧
 
 - **框架**: Next.js 15 (App Router) + TypeScript
-- **樣式**: Tailwind CSS v4（暖色調 Design Token）
+- **樣式**: Tailwind CSS v4
 - **Auth**: Supabase Auth (Google OAuth)
 - **DB**: Supabase PostgreSQL + Prisma v5
 - **AI**: Claude Sonnet 4.5 (Anthropic)
-- **Queue**: BullMQ + Redis（Phase 7 加入）
+- **Queue**: BullMQ + Redis
 - **State**: React Query + Zustand
-- **PWA**: next-pwa + IndexedDB（Phase 10 加入）
+- **PWA**: next-pwa + IndexedDB
 
 ## 快速開始
 
