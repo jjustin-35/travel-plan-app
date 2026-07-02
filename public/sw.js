@@ -86,7 +86,12 @@ async function cacheFirstWithNetwork(request, cacheName) {
   const cached = await caches.match(request);
   if (cached) return cached;
   const cache = await caches.open(cacheName);
-  const response = await fetch(request);
-  if (response.ok) cache.put(request, response.clone());
-  return response;
+  try {
+    const response = await fetch(request);
+    if (response.ok) cache.put(request, response.clone());
+    return response;
+  } catch (err) {
+    console.error("Error fetching resource:", err);
+    return new Response(null, { status: 504, statusText: "Network Error" });
+  }
 }
