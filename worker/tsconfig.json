@@ -12,6 +12,6 @@
       "@/*": ["../src/*"]
     }
   },
-  "include": ["index.ts", "../src/lib/schemas/**/*.ts"],
+  "include": ["index.ts", "../src/lib/db/prisma.ts", "../src/generated/prisma/**/*.ts", "../src/lib/schemas/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

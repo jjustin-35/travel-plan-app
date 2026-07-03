@@ -1,13 +1,17 @@
-import "dotenv/config";
+import { config } from "dotenv";
+import { resolve } from "path";
+
+config({ path: resolve(process.cwd(), ".env.local") });
+config({ path: resolve(process.cwd(), ".env") });
+
 import { Worker } from "bullmq";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../src/lib/db/prisma";
 import Anthropic from "@anthropic-ai/sdk";
 import IORedis from "ioredis";
 import { createHash } from "crypto";
 import { ZodError } from "zod";
 import { TripResponseSchema } from "../src/lib/schemas/trip.schema";
 
-const prisma = new PrismaClient({ log: ["error"] });
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const redis = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
   maxRetriesPerRequest: null,
