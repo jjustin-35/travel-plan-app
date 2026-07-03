@@ -10,6 +10,8 @@ import { StepBudget } from "@/components/onboarding/StepBudget";
 import { StepStyles } from "@/components/onboarding/StepStyles";
 import { StepRequirements } from "@/components/onboarding/StepRequirements";
 import { SummaryPage } from "@/components/onboarding/SummaryPage";
+import { RippleButton } from "@/components/ui/RippleButton";
+import { ChevronLeft, ArrowRight } from "lucide-react";
 import { useMemo, useState } from "react";
 
 const TOTAL_STEPS = 7;
@@ -34,13 +36,33 @@ type StoreState = {
   tripType: string;
 };
 
-function isStepValid(step: number, store: StoreState): boolean {
-  if (step === 1) return store.destination.trim().length > 0;
-  if (step === 2) return !!store.startDate && !!store.endDate && store.days > 0;
-  if (step === 3) return store.peopleCount >= 1;
-  if (step === 4) return store.tripType.length > 0;
-  return true; // optional steps always "valid"
+const validations = {
+  1: (store: StoreState) => store.destination.trim().length > 0,
+  2: (store: StoreState) => !!store.startDate && !!store.endDate && store.days > 0,
+  3: (store: StoreState) => store.peopleCount >= 1,
+  4: (store: StoreState) => store.tripType.length > 0,
 }
+
+function isStepValid(step: number, store: StoreState): boolean {
+  if (!(step in validations)) return true;
+  return validations[step as keyof typeof validations](store);
+}
+
+const stepComponents = {
+  1: StepDestination,
+  2: StepDates,
+  3: StepPeople,
+  4: StepTripType,
+  5: StepBudget,
+  6: StepStyles,
+  7: StepRequirements,
+};
+
+const StepContent = ({ currentStep }: { currentStep: number }) => {
+  if (!(currentStep in stepComponents)) return null;
+  const Component = stepComponents[currentStep as keyof typeof stepComponents];
+  return <Component />;
+};
 
 export default function OnboardingPage() {
   const store = useOnboardingStore();
@@ -74,28 +96,15 @@ export default function OnboardingPage() {
     }
   };
 
-  const StepContent = () => {
-    switch (currentStep) {
-      case 1: return <StepDestination />;
-      case 2: return <StepDates />;
-      case 3: return <StepPeople />;
-      case 4: return <StepTripType />;
-      case 5: return <StepBudget />;
-      case 6: return <StepStyles />;
-      case 7: return <StepRequirements />;
-      default: return null;
-    }
-  };
-
   if (showSummary) {
     return (
       <div className="flex flex-col min-h-screen">
-        <div className="flex items-center px-6 pt-4 pb-2">
+        <div className="flex items-center gap-2 px-6 pt-6 pb-2">
           <button
             onClick={() => setShowSummary(false)}
-            className="text-muted hover:text-charcoal transition-colors text-sm"
+            className="flex items-center gap-1 text-muted hover:text-charcoal transition-colors text-sm"
           >
-            ← 返回修改
+            <ChevronLeft size={16} /> 返回修改
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 pb-8">
@@ -108,8 +117,8 @@ export default function OnboardingPage() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 pt-4 pb-2">
-        <p className="text-sm font-medium text-charcoal">旅路</p>
+      <div className="flex items-center justify-between px-6 pt-6 pb-2">
+        <span className="font-brand text-2xl text-coral">旅路</span>
         <p className="text-sm text-muted">
           {currentStep}/{TOTAL_STEPS}
         </p>
@@ -140,37 +149,40 @@ export default function OnboardingPage() {
 
       {/* Step content */}
       <div className="flex-1 overflow-y-auto px-6 pt-4 pb-4">
-        <StepContent />
+        <StepContent currentStep={currentStep} />
       </div>
 
       {/* Navigation */}
-      <div className="px-6 pb-8 pt-2 flex flex-col gap-3">
-        <button
-          onClick={handleNext}
-          disabled={!canGoNext && !isOptional}
-          className="w-full bg-coral text-white rounded-2xl py-4 font-semibold disabled:opacity-40 hover:bg-wood transition-colors"
-        >
-          {currentStep === TOTAL_STEPS ? "查看摘要" : "下一步"}
-        </button>
+      <div className="px-6 pb-10 pt-2 flex flex-col gap-3">
+        {isOptional && (
+          <RippleButton
+            onClick={handleSkip}
+            rippleColor="rgba(160,120,80,0.12)"
+            className="w-full py-2 text-sm font-medium text-muted hover:text-charcoal transition-colors"
+          >
+            跳過此步驟
+          </RippleButton>
+        )}
 
         <div className="flex gap-3">
           {currentStep > 1 && (
-            <button
+            <RippleButton
               onClick={prevStep}
-              className="flex-1 bg-white border border-border rounded-2xl py-3 text-charcoal font-medium hover:bg-card-hover transition-colors"
+              rippleColor="rgba(160,120,80,0.15)"
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border bg-white text-charcoal hover:bg-card-hover transition-colors"
             >
-              上一步
-            </button>
+              <ChevronLeft size={20} />
+            </RippleButton>
           )}
 
-          {isOptional && (
-            <button
-              onClick={handleSkip}
-              className="flex-1 text-muted text-sm font-medium py-3 hover:text-charcoal transition-colors"
-            >
-              跳過
-            </button>
-          )}
+          <RippleButton
+            onClick={handleNext}
+            disabled={!canGoNext && !isOptional}
+            className="flex h-14 flex-1 items-center justify-center gap-1.5 rounded-2xl bg-coral text-white font-bold disabled:opacity-40 hover:bg-wood transition-colors"
+          >
+            {currentStep === TOTAL_STEPS ? "查看摘要" : "下一步"}
+            <ArrowRight size={18} />
+          </RippleButton>
         </div>
       </div>
     </div>

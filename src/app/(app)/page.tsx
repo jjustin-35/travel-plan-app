@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { listTrips } from "@/lib/services/trip.service";
 import Link from "next/link";
+import { Plus, User, Map } from "lucide-react";
 import { TripCard } from "@/components/trip/TripCard";
 
 export default async function HomePage() {
@@ -20,12 +21,12 @@ export default async function HomePage() {
       {/* Header */}
       <div className="flex items-center justify-between px-6 pt-8 pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-charcoal">旅路</h1>
+          <h1 className="font-brand text-3xl text-coral">旅路</h1>
           <p className="text-sm text-muted mt-0.5">
             你好，{user?.user_metadata?.name ?? "旅人"} 👋
           </p>
         </div>
-        <div className="w-10 h-10 rounded-full bg-butter overflow-hidden flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full bg-butter border border-border overflow-hidden flex items-center justify-center">
           {user?.user_metadata?.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -34,7 +35,7 @@ export default async function HomePage() {
               className="w-full h-full object-cover"
             />
           ) : (
-            <span className="text-lg">👤</span>
+            <User size={18} className="text-wood" />
           )}
         </div>
       </div>
@@ -43,7 +44,9 @@ export default async function HomePage() {
         {trips.length === 0 ? (
           /* Empty state */
           <div className="flex flex-col items-center justify-center flex-1 text-center py-16">
-            <div className="text-7xl mb-4">🗺️</div>
+            <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-butter mb-4">
+              <Map size={44} className="text-coral" strokeWidth={1.5} />
+            </div>
             <p className="font-bold text-charcoal text-lg">還沒有行程</p>
             <p className="text-sm text-muted mt-1 leading-relaxed max-w-xs">
               點擊右下角的 + 按鈕，讓 AI 幫你規劃第一趟旅程
@@ -109,9 +112,10 @@ export default async function HomePage() {
       {/* FAB */}
       <Link
         href="/onboarding"
-        className="fixed bottom-8 right-6 w-14 h-14 bg-coral text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-wood transition-colors z-50"
+        className="fixed bottom-8 right-6 w-14 h-14 bg-coral text-white rounded-full flex items-center justify-center hover:bg-wood transition-all active:scale-95 z-50"
+        style={{ boxShadow: "0 8px 24px rgba(233,116,81,0.45)" }}
       >
-        +
+        <Plus size={24} strokeWidth={2.5} />
       </Link>
     </div>
   );

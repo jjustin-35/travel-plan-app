@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { TimelineView } from "@/components/trip/TimelineView";
 import { LoadingAnimation } from "@/components/trip/LoadingAnimation";
 import { EditEventModal } from "@/components/trip/EditEventModal";
+import { RippleButton } from "@/components/ui/RippleButton";
+import { ArrowLeft, RefreshCw, Share2, Plus, WifiOff, RefreshCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 
@@ -179,7 +181,7 @@ export default function TripDetailPage() {
   );
 
   if (isLoading || trip?.status === "generating") {
-    return <LoadingAnimation />;
+    return <LoadingAnimation destination={trip?.destination} />;
   }
 
   if (isError || !trip) {
@@ -228,47 +230,58 @@ export default function TripDetailPage() {
               : "bg-blue-50 text-blue-600",
           ].join(" ")}
         >
-          <span>{!isOnline ? "📴 離線模式 — 變更將在上線後同步" : "🔄 同步中…"}</span>
+          {!isOnline ? (
+            <>
+              <WifiOff size={13} /> 離線模式 — 變更將在上線後同步
+            </>
+          ) : (
+            <>
+              <RefreshCcw size={13} className="animate-spin" /> 同步中…
+            </>
+          )}
         </div>
       )}
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-border">
-        <div className="flex items-center gap-2">
-          <button
+      <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border">
+        <div className="flex items-center gap-2 min-w-0">
+          <RippleButton
             onClick={() => router.push("/")}
-            className="p-1 -ml-1 text-charcoal hover:text-coral transition-colors text-lg"
+            rippleColor="rgba(160,120,80,0.15)"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border text-charcoal hover:bg-butter transition-colors"
           >
-            ←
-          </button>
-          <div>
-            <h1 className="font-bold text-charcoal text-sm leading-tight">
+            <ArrowLeft size={18} />
+          </RippleButton>
+          <div className="min-w-0">
+            <h1 className="font-extrabold text-charcoal text-sm leading-tight truncate">
               {trip.title}
             </h1>
-            <p className="text-xs text-muted">{trip.destination}</p>
+            <p className="text-xs text-muted truncate">{trip.destination}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {isSaving && (
             <span className="text-xs text-muted animate-pulse px-1">儲存中…</span>
           )}
-          <button
+          <RippleButton
             onClick={async () => {
               await fetch(`/api/trips/${id}/regenerate`, { method: "POST" });
               queryClient.invalidateQueries({ queryKey: ["trip", id] });
             }}
-            className="p-2 text-muted hover:text-coral transition-colors rounded-xl hover:bg-butter"
+            rippleColor="rgba(233,116,81,0.18)"
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-coral/30 bg-coral/5 text-coral hover:bg-coral/10 transition-colors"
             title="重新產生行程"
           >
-            🔄
-          </button>
-          <button
+            <RefreshCw size={16} />
+          </RippleButton>
+          <RippleButton
             onClick={() => router.push(`/trips/${id}/share`)}
-            className="p-2 text-muted hover:text-coral transition-colors rounded-xl hover:bg-butter"
+            rippleColor="rgba(160,120,80,0.15)"
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border text-muted hover:text-coral hover:bg-butter transition-colors"
             title="分享行程"
           >
-            🔗
-          </button>
+            <Share2 size={16} />
+          </RippleButton>
         </div>
       </div>
 
@@ -286,13 +299,14 @@ export default function TripDetailPage() {
       </div>
 
       {/* FAB: Add event */}
-      <button
+      <RippleButton
         onClick={() => handleAddEvent(activeDay)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-coral text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-wood transition-all active:scale-95 z-40"
+        className="fixed bottom-8 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-coral text-white z-40 transition-transform active:scale-95"
+        style={{ boxShadow: "0 8px 24px rgba(233,116,81,0.45)" }}
         title="新增行程節點"
       >
-        +
-      </button>
+        <Plus size={24} strokeWidth={2.5} />
+      </RippleButton>
 
       {/* Edit / Create Event Modal */}
       {(editingEvent !== null || addingForDay !== null) && (

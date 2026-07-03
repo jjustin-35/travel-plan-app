@@ -1,13 +1,32 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { useOnboardingStore } from "@/stores/onboarding.store";
 
+const UNSPLASH_PARAMS = "?w=800&q=80&auto=format&fit=crop";
+
 const POPULAR_DESTINATIONS = [
-  { name: "東京", country: "日本", emoji: "🗼" },
-  { name: "峇里島", country: "印尼", emoji: "🌴" },
-  { name: "巴黎", country: "法國", emoji: "🗺️" },
-  { name: "首爾", country: "韓國", emoji: "🏙️" },
+  {
+    name: "東京",
+    country: "日本",
+    image: `https://images.unsplash.com/photo-1540959733332-eab4deabeeaf${UNSPLASH_PARAMS}`,
+  },
+  {
+    name: "峇里島",
+    country: "印尼",
+    image: `https://images.unsplash.com/photo-1537996194471-e657df975ab4${UNSPLASH_PARAMS}`,
+  },
+  {
+    name: "巴黎",
+    country: "法國",
+    image: `https://images.unsplash.com/photo-1502602898657-3e91760cbb34${UNSPLASH_PARAMS}`,
+  },
+  {
+    name: "首爾",
+    country: "韓國",
+    image: `https://images.unsplash.com/photo-1517154421773-0529f29ea451${UNSPLASH_PARAMS}`,
+  },
 ];
 
 export function StepDestination() {
@@ -40,22 +59,48 @@ export function StepDestination() {
       <div>
         <p className="text-xs font-medium text-muted mb-3">🔥 熱門推薦</p>
         <div className="grid grid-cols-2 gap-3">
-          {POPULAR_DESTINATIONS.map((dest) => (
-            <button
-              key={dest.name}
-              onClick={() => handleChange(dest.name)}
-              className={[
-                "rounded-2xl p-4 text-left transition-all border-2",
-                input === dest.name
-                  ? "border-coral bg-coral/5"
-                  : "border-border bg-white hover:border-coral/40 hover:bg-card-hover",
-              ].join(" ")}
-            >
-              <div className="text-2xl mb-2">{dest.emoji}</div>
-              <p className="font-semibold text-charcoal text-sm">{dest.name}</p>
-              <p className="text-xs text-muted">{dest.country}</p>
-            </button>
-          ))}
+          {POPULAR_DESTINATIONS.map((dest) => {
+            const isSelected = input === dest.name;
+            return (
+              <button
+                key={dest.name}
+                onClick={() => handleChange(dest.name)}
+                className={[
+                  "relative aspect-4/3 rounded-2xl overflow-hidden text-left transition-all",
+                  "ring-2 ring-offset-2",
+                  isSelected
+                    ? "ring-coral ring-offset-cream"
+                    : "ring-transparent hover:ring-coral/40",
+                ].join(" ")}
+              >
+                <Image
+                  src={dest.image}
+                  alt={dest.name}
+                  fill
+                  sizes="(max-width: 448px) 45vw, 200px"
+                  className="object-cover"
+                />
+                {/* Gradient overlay for text legibility */}
+                <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/10 to-transparent" />
+
+                {/* Selected check badge */}
+                {isSelected && (
+                  <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-coral text-white flex items-center justify-center text-xs shadow-md">
+                    ✓
+                  </div>
+                )}
+
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <p className="font-semibold text-white text-sm drop-shadow">
+                    {dest.name}
+                  </p>
+                  <p className="text-xs text-white/80 drop-shadow">
+                    {dest.country}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

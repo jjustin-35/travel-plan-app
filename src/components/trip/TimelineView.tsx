@@ -51,20 +51,20 @@ export function TimelineView({
   return (
     <div className="flex flex-col h-full">
       {/* Day Tabs */}
-      <div className="flex overflow-x-auto gap-2 px-4 py-3 border-b border-border bg-white">
+      <div className="no-scrollbar flex overflow-x-auto gap-2 px-4 py-3 border-b border-border bg-card">
         {days.map((day) => (
           <button
             key={day.dayNumber}
             onClick={() => onDayChange(day.dayNumber)}
             className={[
-              "flex-shrink-0 px-4 py-2 rounded-full text-xs font-semibold transition-all",
+              "shrink-0 px-4 py-2 rounded-2xl text-xs font-bold transition-all",
               activeDay === day.dayNumber
-                ? "bg-coral text-white"
-                : "bg-butter text-charcoal hover:bg-wood/20",
+                ? "bg-coral text-white shadow-md shadow-coral/25"
+                : "bg-butter text-muted hover:bg-wood-light",
             ].join(" ")}
           >
             <div>Day {day.dayNumber}</div>
-            <div className="font-normal opacity-80">{formatDate(day.date)}</div>
+            <div className="font-medium opacity-80">{formatDate(day.date)}</div>
           </button>
         ))}
       </div>

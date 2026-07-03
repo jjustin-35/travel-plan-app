@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/client";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { MapPin, Route, Share2, Plane } from "lucide-react";
+import { RippleButton } from "@/components/ui/RippleButton";
 
 function LoginContent() {
   const searchParams = useSearchParams();
@@ -23,26 +25,32 @@ function LoginContent() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-coral mb-4">
-            <span className="text-2xl">✈️</span>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-coral shadow-lg shadow-coral/30 mb-4">
+            <Plane className="text-white" size={30} strokeWidth={2} />
           </div>
-          <h1 className="text-3xl font-bold text-charcoal tracking-tight">
-            旅路
-          </h1>
+          <h1 className="font-brand text-4xl text-coral">旅路</h1>
           <p className="text-muted mt-2 text-sm leading-relaxed">
             讓 AI 為你規劃每一段旅程
           </p>
         </div>
 
         {/* Illustration */}
-        <div className="bg-butter rounded-3xl p-8 mb-8 text-center">
-          <div className="text-6xl mb-3">🗺️</div>
-          <p className="text-charcoal text-sm font-medium">
+        <div className="bg-butter rounded-3xl p-7 mb-8 text-center border border-border">
+          <div className="text-5xl mb-3">🗺️</div>
+          <p className="text-charcoal text-sm font-semibold">
             輸入目的地，AI 即刻生成專屬行程
           </p>
-          <p className="text-muted text-xs mt-1">
-            支援拖曳調整、備選推薦、一鍵分享
-          </p>
+          <div className="mt-4 flex items-center justify-center gap-4 text-muted">
+            <span className="flex items-center gap-1 text-xs">
+              <MapPin size={13} className="text-coral" /> 拖曳調整
+            </span>
+            <span className="flex items-center gap-1 text-xs">
+              <Route size={13} className="text-coral" /> 備選推薦
+            </span>
+            <span className="flex items-center gap-1 text-xs">
+              <Share2 size={13} className="text-coral" /> 一鍵分享
+            </span>
+          </div>
         </div>
 
         {/* Error message */}
@@ -53,9 +61,10 @@ function LoginContent() {
         )}
 
         {/* Login button */}
-        <button
+        <RippleButton
           onClick={handleGoogleLogin}
-          className="w-full flex items-center justify-center gap-3 bg-white border border-border rounded-2xl px-6 py-4 text-charcoal font-medium shadow-sm hover:bg-card-hover transition-colors"
+          rippleColor="rgba(233,116,81,0.12)"
+          className="w-full flex items-center justify-center gap-3 bg-white border border-border rounded-2xl px-6 py-4 text-charcoal font-semibold shadow-sm hover:bg-card-hover transition-colors"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -76,7 +85,7 @@ function LoginContent() {
             />
           </svg>
           使用 Google 帳號繼續
-        </button>
+        </RippleButton>
 
         <p className="text-center text-xs text-muted mt-6">
           繼續即表示您同意我們的服務條款與隱私權政策

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Edit3, Copy, RefreshCw, Trash2, type LucideIcon } from "lucide-react";
 
 type MenuAction = "edit" | "delete" | "copy" | "alternative";
 
@@ -9,11 +10,11 @@ type EventContextMenuProps = {
   onClose: () => void;
 };
 
-const MENU_ITEMS: { action: MenuAction; icon: string; label: string }[] = [
-  { action: "edit", icon: "✏️", label: "編輯" },
-  { action: "copy", icon: "📋", label: "複製到其他天" },
-  { action: "alternative", icon: "🔄", label: "換一個" },
-  { action: "delete", icon: "🗑️", label: "刪除" },
+const MENU_ITEMS: { action: MenuAction; Icon: LucideIcon; label: string }[] = [
+  { action: "edit", Icon: Edit3, label: "編輯" },
+  { action: "copy", Icon: Copy, label: "複製到其他天" },
+  { action: "alternative", Icon: RefreshCw, label: "換一個" },
+  { action: "delete", Icon: Trash2, label: "刪除" },
 ];
 
 export function EventContextMenu({ onAction, onClose }: EventContextMenuProps) {
@@ -32,7 +33,8 @@ export function EventContextMenu({ onAction, onClose }: EventContextMenuProps) {
   return (
     <div
       ref={ref}
-      className="absolute left-0 right-0 z-20 mt-1 bg-white rounded-2xl shadow-lg border border-border overflow-hidden"
+      className="absolute left-0 right-0 z-20 mt-1 bg-card rounded-2xl shadow-xl border border-border overflow-hidden"
+      style={{ boxShadow: "0 8px 32px rgba(61,43,31,0.15)" }}
     >
       {MENU_ITEMS.map((item) => (
         <button
@@ -48,8 +50,8 @@ export function EventContextMenu({ onAction, onClose }: EventContextMenuProps) {
               : "text-charcoal hover:bg-butter",
           ].join(" ")}
         >
-          <span>{item.icon}</span>
-          <span className="font-medium">{item.label}</span>
+          <item.Icon size={16} />
+          <span className="font-semibold">{item.label}</span>
         </button>
       ))}
     </div>

@@ -1,14 +1,29 @@
 "use client";
 
+import {
+  MapPin,
+  Utensils,
+  Coffee,
+  Train,
+  Bed,
+  ShoppingBag,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import { useAlternativesStore, TripEvent } from "@/stores/alternatives.store";
 
 type AlternativesPanelProps = {
   onSelect: (alt: TripEvent) => void;
 };
 
-const CATEGORY_ICONS: Record<string, string> = {
-  景點: "📍", 餐廳: "🍽️", 咖啡廳: "☕", 交通: "🚌",
-  住宿: "🏨", 購物: "🛍️", 其他: "📌",
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  景點: MapPin,
+  餐廳: Utensils,
+  咖啡廳: Coffee,
+  交通: Train,
+  住宿: Bed,
+  購物: ShoppingBag,
+  其他: Sparkles,
 };
 
 function formatDuration(mins: number) {
@@ -34,7 +49,7 @@ export function AlternativesPanel({ onSelect }: AlternativesPanelProps) {
       {isLoading && (
         <div className="flex flex-col gap-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white/60 rounded-xl h-16 animate-pulse" />
+            <div key={i} className="bg-card/60 rounded-xl h-16 animate-pulse" />
           ))}
         </div>
       )}
@@ -45,25 +60,28 @@ export function AlternativesPanel({ onSelect }: AlternativesPanelProps) {
 
       {!isLoading && alternatives.length > 0 && (
         <div className="flex flex-col gap-2">
-          {alternatives.map((alt) => (
+          {alternatives.map((alt) => {
+            const Icon = CATEGORY_ICONS[alt.category] ?? Sparkles;
+            return (
             <button
               key={alt.id}
               onClick={() => onSelect(alt)}
-              className="w-full bg-white rounded-xl p-3 text-left flex items-start gap-3 hover:bg-card-hover transition-colors border border-transparent hover:border-coral/30"
+              className="w-full bg-card rounded-xl p-3 text-left flex items-start gap-3 hover:bg-card-hover transition-colors border border-transparent hover:border-coral/30"
             >
-              <span className="text-lg mt-0.5">{CATEGORY_ICONS[alt.category] ?? "📌"}</span>
+              <Icon size={18} className="text-coral mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-charcoal text-xs truncate">{alt.title}</p>
                 <p className="text-xs text-muted truncate mt-0.5">{alt.location}</p>
                 <p className="text-xs text-charcoal/60 mt-1 line-clamp-1">{alt.description}</p>
               </div>
-              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+              <div className="flex flex-col items-end gap-1 shrink-0">
                 <span className="text-xs text-muted">{alt.eventTime}</span>
                 <span className="text-xs text-muted">{formatDuration(alt.durationMinutes)}</span>
                 <span className="text-xs font-semibold text-coral mt-1">選擇</span>
               </div>
             </button>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

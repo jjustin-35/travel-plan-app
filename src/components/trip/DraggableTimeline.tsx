@@ -16,6 +16,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
 import { EventCard } from "@/components/trip/EventCard";
 import { EventContextMenu } from "@/components/trip/EventContextMenu";
 import { AlternativesPanel } from "@/components/trip/AlternativesPanel";
@@ -54,9 +55,9 @@ function SortableEvent({
       <div
         {...attributes}
         {...listeners}
-        className="absolute left-0 top-0 bottom-0 w-8 flex items-center justify-center cursor-grab active:cursor-grabbing z-10"
+        className="absolute left-0 top-0 bottom-0 w-8 flex items-center justify-center cursor-grab active:cursor-grabbing z-10 text-wood/50"
       >
-        <span className="text-border text-xs">⠿</span>
+        <GripVertical size={16} />
       </div>
 
       <div className="pl-6">
@@ -173,10 +174,18 @@ export function DraggableTimeline({
 
   if (events.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="text-5xl mb-3">🗺️</div>
-        <p className="font-semibold text-charcoal text-sm">這天還沒有安排</p>
-        <p className="text-xs text-muted mt-1">點擊 + 開始規劃</p>
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <svg width="110" height="92" viewBox="0 0 120 100" className="mb-4">
+          <rect x="22" y="16" width="76" height="60" rx="10" fill="#F5E4C0" stroke="#D4B896" strokeWidth="2" />
+          <rect x="22" y="40" width="76" height="6" fill="#D4B896" opacity="0.4" />
+          <rect x="40" y="6" width="40" height="14" rx="6" fill="none" stroke="#D4B896" strokeWidth="2.5" />
+          <rect x="48" y="30" width="24" height="16" rx="5" fill="#E97451" />
+          <circle cx="60" cy="36" r="3" fill="white" opacity="0.6" />
+          <circle cx="34" cy="80" r="6" fill="#D4956A" />
+          <circle cx="86" cy="80" r="6" fill="#D4956A" />
+        </svg>
+        <p className="font-bold text-charcoal text-base">這天還沒有安排</p>
+        <p className="text-xs text-muted mt-1">點擊右下角「+」開始規劃你的精彩行程</p>
       </div>
     );
   }
@@ -190,7 +199,10 @@ export function DraggableTimeline({
 
       <div className="relative">
         {/* Vertical timeline line */}
-        <div className="absolute left-[28px] top-4 bottom-4 w-0.5 bg-border pointer-events-none" />
+        <div
+          className="absolute left-[28px] top-4 bottom-4 w-0.5 rounded-full pointer-events-none"
+          style={{ background: "linear-gradient(to bottom, #E97451, #F5C45A, #D4956A)" }}
+        />
 
         <DndContext
           sensors={sensors}
@@ -205,8 +217,10 @@ export function DraggableTimeline({
               {events.map((event) => (
                 <div key={event.id} className="flex items-start gap-2">
                   {/* Timeline dot */}
-                  <div className="w-9 flex flex-col items-center flex-shrink-0 pt-4 z-10">
-                    <div className="w-3 h-3 rounded-full bg-coral border-2 border-white shadow-sm" />
+                  <div className="w-9 flex flex-col items-center shrink-0 pt-5 z-10">
+                    <div className="flex h-4 w-4 items-center justify-center rounded-full border-2 border-coral bg-card">
+                      <div className="h-1.5 w-1.5 rounded-full bg-coral" />
+                    </div>
                   </div>
 
                   <div className="flex-1 min-w-0">

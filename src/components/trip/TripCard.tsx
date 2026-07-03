@@ -45,10 +45,10 @@ export function TripCard({ trip }: { trip: Trip }) {
 
   return (
     <Link href={`/trips/${trip.id}`}>
-      <div className="bg-white rounded-2xl border border-border overflow-hidden hover:shadow-md transition-shadow">
+      <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
         {/* Cover */}
-        <div className="h-28 bg-gradient-to-br from-butter to-wood-light flex items-center justify-center">
-          <span className="text-6xl">{emoji}</span>
+        <div className="h-28 bg-linear-to-br from-butter to-wood-light flex items-center justify-center">
+          <span className="text-6xl drop-shadow-sm">{emoji}</span>
         </div>
 
         {/* Content */}
@@ -58,7 +58,7 @@ export function TripCard({ trip }: { trip: Trip }) {
               {trip.title}
             </h3>
             {isGenerating && (
-              <span className="text-xs bg-coral/10 text-coral px-2 py-0.5 rounded-full flex-shrink-0">
+              <span className="text-xs bg-coral/10 text-coral px-2 py-0.5 rounded-full shrink-0">
                 規劃中
               </span>
             )}
