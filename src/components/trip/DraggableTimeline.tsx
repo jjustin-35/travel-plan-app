@@ -5,9 +5,11 @@ import {
   DndContext,
   closestCenter,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
+  DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -16,60 +18,44 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
 import { EventCard } from "@/components/trip/EventCard";
-import { EventContextMenu } from "@/components/trip/EventContextMenu";
+import { EventDetailModal } from "@/components/trip/EventDetailModal";
 import { AlternativesPanel } from "@/components/trip/AlternativesPanel";
 import { useAlternativesStore, TripEvent } from "@/stores/alternatives.store";
 
+const LONG_PRESS_MS = 450;
+
 type SortableEventProps = {
   event: TripEvent;
-  isSelected: boolean;
-  showMenu: boolean;
+  dragJustEnded: boolean;
   onTap: (event: TripEvent) => void;
-  onMenuAction: (action: string) => void;
-  onMenuClose: () => void;
 };
 
-function SortableEvent({
-  event,
-  isSelected,
-  showMenu,
-  onTap,
-  onMenuAction,
-  onMenuClose,
-}: SortableEventProps) {
+function SortableEvent({ event, dragJustEnded, onTap }: SortableEventProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: event.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.85 : 1,
     zIndex: isDragging ? 10 : undefined,
   };
 
+  const handleClick = () => {
+    if (dragJustEnded) return;
+    onTap(event);
+  };
+
   return (
-    <div ref={setNodeRef} style={style} className="relative">
-      {/* Long-press drag handle */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute left-0 top-0 bottom-0 w-8 flex items-center justify-center cursor-grab active:cursor-grabbing z-10 text-wood/50"
-      >
-        <GripVertical size={16} />
-      </div>
-
-      <div className="pl-6">
-        <EventCard event={event} onTap={onTap} isSelected={isSelected} />
-      </div>
-
-      {showMenu && (
-        <EventContextMenu
-          onAction={onMenuAction}
-          onClose={onMenuClose}
-        />
-      )}
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="touch-manipulation"
+    >
+      <EventCard event={event} onTap={handleClick} isDragging={isDragging} />
     </div>
   );
 }
@@ -93,70 +79,61 @@ export function DraggableTimeline({
   onEventsChange,
   onEditEvent,
 }: DraggableTimelineProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailEvent, setDetailEvent] = useState<TripEvent | null>(null);
+  const [dragJustEnded, setDragJustEnded] = useState(false);
   const alternativesStore = useAlternativesStore();
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragJustEndedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { delay: 300, tolerance: 5 },
+      activationConstraint: { delay: LONG_PRESS_MS, tolerance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: LONG_PRESS_MS, tolerance: 8 },
     })
   );
+
+  const handleDragStart = useCallback((_e: DragStartEvent) => {
+    if (dragJustEndedTimer.current) {
+      clearTimeout(dragJustEndedTimer.current);
+      dragJustEndedTimer.current = null;
+    }
+    setDragJustEnded(false);
+    setDetailEvent(null);
+  }, []);
 
   const handleDragEnd = useCallback(
     (e: DragEndEvent) => {
       const { active, over } = e;
-      if (!over || active.id === over.id) return;
 
-      const oldIndex = events.findIndex((ev) => ev.id === active.id);
-      const newIndex = events.findIndex((ev) => ev.id === over.id);
-      const reordered = arrayMove(events, oldIndex, newIndex).map(
-        (ev, idx) => ({ ...ev, sortOrder: idx + 1 })
-      );
-      onEventsChange(dayId, reordered);
+      if (over && active.id !== over.id) {
+        const oldIndex = events.findIndex((ev) => ev.id === active.id);
+        const newIndex = events.findIndex((ev) => ev.id === over.id);
+        const reordered = arrayMove(events, oldIndex, newIndex).map(
+          (ev, idx) => ({ ...ev, sortOrder: idx + 1 })
+        );
+        onEventsChange(dayId, reordered);
+      }
+
+      setDragJustEnded(true);
+      if (dragJustEndedTimer.current) clearTimeout(dragJustEndedTimer.current);
+      dragJustEndedTimer.current = setTimeout(() => {
+        setDragJustEnded(false);
+        dragJustEndedTimer.current = null;
+      }, 200);
     },
     [events, dayId, onEventsChange]
   );
 
-  const handleMenuAction = useCallback(
-    async (action: string, event: TripEvent) => {
-      if (action === "edit") {
-        onEditEvent(event);
-      } else if (action === "delete") {
-        const updated = events
-          .filter((e) => e.id !== event.id)
-          .map((e, i) => ({ ...e, sortOrder: i + 1 }));
-        onEventsChange(dayId, updated);
-      } else if (action === "copy") {
-        const copy = { ...event, id: crypto.randomUUID(), sortOrder: events.length + 1 };
-        onEventsChange(dayId, [...events, copy]);
-      } else if (action === "alternative") {
-        alternativesStore.startLoading(event.id);
-        try {
-          const surroundingEvents = events
-            .filter((e) => e.id !== event.id)
-            .slice(Math.max(0, event.sortOrder - 2), event.sortOrder + 1);
-          const res = await fetch(
-            `/api/trips/${tripId}/events/${event.id}/alternatives`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                event,
-                context: { day_date: dayDate, surrounding_events: surroundingEvents },
-              }),
-            }
-          );
-          if (!res.ok) throw new Error("Failed to fetch alternatives");
-          const data = await res.json();
-          alternativesStore.setAlternatives(event.id, data.alternatives);
-        } catch {
-          alternativesStore.setError("目前無法產生備選，請稍後再試");
-        }
-      }
-      setSelectedId(null);
+  const handleDeleteEvent = useCallback(
+    (event: TripEvent) => {
+      const updated = events
+        .filter((e) => e.id !== event.id)
+        .map((e, i) => ({ ...e, sortOrder: i + 1 }));
+      onEventsChange(dayId, updated);
+      setDetailEvent(null);
     },
-    [events, dayId, dayDate, tripId, onEventsChange, onEditEvent, alternativesStore]
+    [events, dayId, onEventsChange]
   );
 
   const handleAlternativeSelect = useCallback(
@@ -192,21 +169,21 @@ export function DraggableTimeline({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Alternatives Panel */}
-      {(alternativesStore.isLoading || alternativesStore.alternatives.length > 0 || alternativesStore.error) && (
+      {(alternativesStore.isLoading ||
+        alternativesStore.alternatives.length > 0 ||
+        alternativesStore.error) && (
         <AlternativesPanel onSelect={handleAlternativeSelect} />
       )}
 
-      <div className="relative">
-        {/* Vertical timeline line */}
-        <div
-          className="absolute left-[28px] top-4 bottom-4 w-0.5 rounded-full pointer-events-none"
-          style={{ background: "linear-gradient(to bottom, #E97451, #F5C45A, #D4956A)" }}
-        />
+      <p className="text-xs text-muted text-center -mb-1">
+        點擊查看詳情 · 長按拖曳排序
+      </p>
 
+      <div className="relative">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
           <SortableContext
@@ -216,7 +193,6 @@ export function DraggableTimeline({
             <div className="flex flex-col gap-3">
               {events.map((event) => (
                 <div key={event.id} className="flex items-start gap-2">
-                  {/* Timeline dot */}
                   <div className="w-9 flex flex-col items-center shrink-0 pt-5 z-10">
                     <div className="flex h-4 w-4 items-center justify-center rounded-full border-2 border-coral bg-card">
                       <div className="h-1.5 w-1.5 rounded-full bg-coral" />
@@ -226,11 +202,8 @@ export function DraggableTimeline({
                   <div className="flex-1 min-w-0">
                     <SortableEvent
                       event={event}
-                      isSelected={selectedId === event.id}
-                      showMenu={selectedId === event.id}
-                      onTap={(e) => setSelectedId((prev) => (prev === e.id ? null : e.id))}
-                      onMenuAction={(action) => handleMenuAction(action, event)}
-                      onMenuClose={() => setSelectedId(null)}
+                      dragJustEnded={dragJustEnded}
+                      onTap={setDetailEvent}
                     />
                   </div>
                 </div>
@@ -239,6 +212,18 @@ export function DraggableTimeline({
           </SortableContext>
         </DndContext>
       </div>
+
+      {detailEvent && (
+        <EventDetailModal
+          event={detailEvent}
+          onClose={() => setDetailEvent(null)}
+          onEdit={() => {
+            onEditEvent(detailEvent);
+            setDetailEvent(null);
+          }}
+          onDelete={() => handleDeleteEvent(detailEvent)}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 # 旅路 — AI 行程規劃 App
 
-以 AI 為核心的旅遊行程規劃 PWA，使用者輸入旅遊基本資訊後，Claude AI 自動產生視覺化行程，並支援手動調整。
+以 AI 為核心的旅遊行程規劃 PWA，使用者輸入旅遊基本資訊後，Gemini AI 自動產生視覺化行程，並支援手動調整。
 
 ## 技術棧
 
@@ -8,7 +8,7 @@
 - **樣式**: Tailwind CSS v4
 - **Auth**: Supabase Auth (Google OAuth)
 - **DB**: Supabase PostgreSQL + Prisma v7 (`@prisma/adapter-pg`)
-- **AI**: Claude Sonnet 4.5 (Anthropic)
+- **AI**: Google Gemini (`@google/genai`)
 - **Queue**: BullMQ + Redis
 - **State**: React Query + Zustand
 - **PWA**: next-pwa + IndexedDB
@@ -21,7 +21,7 @@ npm install
 
 # 2. 設定環境變數
 cp .env.local.example .env.local
-# 填入 SUPABASE_URL、SUPABASE_ANON_KEY、ANTHROPIC_API_KEY
+# 填入 SUPABASE_URL、SUPABASE_ANON_KEY、GEMINI_API_KEY
 
 # 3. 產生 Prisma Client 並執行 DB Migration（需先在 .env.local 設定 DATABASE_URL 和 DIRECT_URL）
 # DATABASE_URL: Supabase > Project Settings > Database > Transaction mode connection string（執行時連線）

@@ -13,13 +13,13 @@ import {
   VALID_EVENT_ID_3,
 } from "@/__test__/fixtures";
 
-const { mockCreate } = vi.hoisted(() => ({
-  mockCreate: vi.fn(),
+const { mockGenerate } = vi.hoisted(() => ({
+  mockGenerate: vi.fn(),
 }));
 
-vi.mock("@anthropic-ai/sdk", () => ({
-  default: class Anthropic {
-    messages = { create: mockCreate };
+vi.mock("@google/genai", () => ({
+  GoogleGenAI: class GoogleGenAI {
+    models = { generateContent: mockGenerate };
   },
 }));
 
@@ -29,24 +29,19 @@ describe("ai-generation.service", () => {
   });
 
   describe("generateTrip", () => {
-    it("parses valid JSON response from Claude", async () => {
-      mockCreate.mockResolvedValue({
-        content: [{ type: "text", text: JSON.stringify(validTripResponse) }],
+    it("parses valid JSON response from Gemini", async () => {
+      mockGenerate.mockResolvedValue({
+        text: JSON.stringify(validTripResponse),
       });
 
       const result = await generateTrip(validTripInput);
       expect(result).toEqual(validTripResponse);
-      expect(mockCreate).toHaveBeenCalledTimes(1);
+      expect(mockGenerate).toHaveBeenCalledTimes(1);
     });
 
     it("strips markdown code fences before parsing", async () => {
-      mockCreate.mockResolvedValue({
-        content: [
-          {
-            type: "text",
-            text: "```json\n" + JSON.stringify(validTripResponse) + "\n```",
-          },
-        ],
+      mockGenerate.mockResolvedValue({
+        text: "```json\n" + JSON.stringify(validTripResponse) + "\n```",
       });
 
       const result = await generateTrip(validTripInput);
@@ -54,32 +49,32 @@ describe("ai-generation.service", () => {
     });
 
     it("retries on Zod validation failure then succeeds", async () => {
-      mockCreate
+      mockGenerate
         .mockResolvedValueOnce({
-          content: [{ type: "text", text: JSON.stringify({ trip: { title: "" } }) }],
+          text: JSON.stringify({ trip: { title: "" } }),
         })
         .mockResolvedValueOnce({
-          content: [{ type: "text", text: JSON.stringify(validTripResponse) }],
+          text: JSON.stringify(validTripResponse),
         });
 
       const result = await generateTrip(validTripInput);
       expect(result).toEqual(validTripResponse);
-      expect(mockCreate).toHaveBeenCalledTimes(2);
+      expect(mockGenerate).toHaveBeenCalledTimes(2);
     });
 
     it("throws AIValidationError after exhausting retries", async () => {
-      mockCreate.mockResolvedValue({
-        content: [{ type: "text", text: JSON.stringify({ trip: { title: "" } }) }],
+      mockGenerate.mockResolvedValue({
+        text: JSON.stringify({ trip: { title: "" } }),
       });
 
       await expect(generateTrip(validTripInput)).rejects.toBeInstanceOf(
         AIValidationError
       );
-      expect(mockCreate).toHaveBeenCalledTimes(3);
+      expect(mockGenerate).toHaveBeenCalledTimes(3);
     });
 
     it("throws AIRateLimitError on 429 status", async () => {
-      mockCreate.mockRejectedValue({ status: 429, message: "Rate limit" });
+      mockGenerate.mockRejectedValue({ status: 429, message: "Rate limit" });
       await expect(generateTrip(validTripInput)).rejects.toBeInstanceOf(
         AIRateLimitError
       );
@@ -94,8 +89,8 @@ describe("ai-generation.service", () => {
     ];
 
     it("returns exactly 3 validated alternatives", async () => {
-      mockCreate.mockResolvedValue({
-        content: [{ type: "text", text: JSON.stringify(alternatives) }],
+      mockGenerate.mockResolvedValue({
+        text: JSON.stringify(alternatives),
       });
 
       const result = await generateAlternatives(
@@ -108,8 +103,8 @@ describe("ai-generation.service", () => {
     });
 
     it("throws AIValidationError when alternatives are invalid", async () => {
-      mockCreate.mockResolvedValue({
-        content: [{ type: "text", text: JSON.stringify([validTripEvent]) }],
+      mockGenerate.mockResolvedValue({
+        text: JSON.stringify([validTripEvent]),
       });
 
       await expect(

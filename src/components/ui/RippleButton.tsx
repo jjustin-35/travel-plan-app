@@ -48,6 +48,8 @@ function RippleLayer({ ripples, color }: { ripples: RippleItem[]; color: string 
 
 type RippleButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   rippleColor?: string;
+  // to fix the passed position in style may not override the default position
+  position?: 'fixed' | 'absolute' | 'relative' | 'sticky' | 'static' | 'inherit' | 'initial' | 'unset';
 };
 
 export function RippleButton({
@@ -55,6 +57,8 @@ export function RippleButton({
   children,
   className = "",
   onClick,
+  style,
+  position = 'relative',
   ...rest
 }: RippleButtonProps) {
   const { ripples, spawn } = useRipples();
@@ -67,7 +71,7 @@ export function RippleButton({
   return (
     <button
       {...rest}
-      className={`relative overflow-hidden ${className}`}
+      className={`${position} overflow-hidden ${className}`}
       onClick={handleClick}
     >
       {children}

@@ -22,11 +22,11 @@ describe("EventCard", () => {
     expect(onTap).toHaveBeenCalledWith(uiTripEvent);
   });
 
-  it("shows selected border style when isSelected", () => {
+  it("shows dragging style when isDragging", () => {
     const { container } = render(
-      <EventCard event={uiTripEvent} isSelected />
+      <EventCard event={uiTripEvent} isDragging />
     );
-    expect(container.querySelector(".border-coral")).toBeTruthy();
+    expect(container.querySelector(".ring-coral\\/30")).toBeTruthy();
   });
 
   it("formats duration over 60 minutes", () => {

@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ trip, async: true }, { status: 202 });
   } else {
-    // Sync path (no Redis): call Claude directly
+    // Sync path (no Redis): call Gemini directly
     const { createTrip } = await import("@/lib/services/trip.service");
     const { AIRateLimitError, AIValidationError } = await import("@/lib/services/ai-generation.service");
     try {
@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ trip }, { status: 201 });
     } catch (err) {
       if (err instanceof AIRateLimitError) {
+        console.error(err);
         return NextResponse.json(
           { error: "AI service busy, please retry in a moment" },
           { status: 429 }

@@ -85,6 +85,7 @@ export default function TripDetailPage() {
         ...d,
         date: new Date(d.date).toISOString().split("T")[0],
       }));
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalDays(days);
     }
   }, [trip]);
@@ -300,12 +301,13 @@ export default function TripDetailPage() {
 
       {/* FAB: Add event */}
       <RippleButton
+        position="fixed"
         onClick={() => handleAddEvent(activeDay)}
-        className="fixed bottom-8 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-coral text-white z-40 transition-transform active:scale-95"
-        style={{ boxShadow: "0 8px 24px rgba(233,116,81,0.45)" }}
+        className="fixed bottom-6 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-coral text-white z-40 transition-transform active:scale-95"
+        style={{ boxShadow: "0 6px 18px rgba(233,116,81,0.40)" }}
         title="新增行程節點"
       >
-        <Plus size={24} strokeWidth={2.5} />
+        <Plus size={18} strokeWidth={2.5} />
       </RippleButton>
 
       {/* Edit / Create Event Modal */}

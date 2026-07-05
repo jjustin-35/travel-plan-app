@@ -40,7 +40,7 @@ type TripEvent = {
 type EventCardProps = {
   event: TripEvent;
   onTap?: (event: TripEvent) => void;
-  isSelected?: boolean;
+  isDragging?: boolean;
 };
 
 function formatDuration(minutes: number): string {
@@ -50,18 +50,26 @@ function formatDuration(minutes: number): string {
   return m > 0 ? `${h} 小時 ${m} 分鐘` : `${h} 小時`;
 }
 
-export function EventCard({ event, onTap, isSelected }: EventCardProps) {
+export function EventCard({ event, onTap, isDragging }: EventCardProps) {
   const config = CATEGORY_CONFIG[event.category] ?? CATEGORY_CONFIG["其他"];
   const { Icon } = config;
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onTap?.(event)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onTap?.(event);
+        }
+      }}
       className={[
-        "w-full text-left bg-card rounded-2xl p-4 border transition-all",
-        isSelected
-          ? "border-coral shadow-md ring-1 ring-coral/30"
-          : "border-border shadow-sm hover:border-coral/40",
+        "w-full text-left bg-card rounded-2xl p-4 border transition-all select-none",
+        isDragging
+          ? "border-coral shadow-lg ring-2 ring-coral/30 scale-[1.02]"
+          : "border-border shadow-sm hover:border-coral/40 active:scale-[0.99]",
       ].join(" ")}
     >
       <div className="flex items-start gap-3">
@@ -105,6 +113,6 @@ export function EventCard({ event, onTap, isSelected }: EventCardProps) {
           </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 }

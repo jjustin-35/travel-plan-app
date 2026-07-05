@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 import { ZodError } from "zod";
 import {
   TripInput,
@@ -8,9 +8,18 @@ import {
   TripEvent,
 } from "@/lib/schemas/trip.schema";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+
+let client: GoogleGenAI | null = null;
+
+// Lazily create the Gemini client so importing this module never fails when the
+// API key is absent (e.g. during build or in unit tests where it is mocked).
+function getClient(): GoogleGenAI {
+  if (!client) {
+    client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  }
+  return client;
+}
 
 export class AIRateLimitError extends Error {
   constructor(message: string) {
@@ -153,22 +162,29 @@ function buildFormatCorrectionContext(
   );
 }
 
-async function callClaude(prompt: string): Promise<string> {
+async function callGemini(prompt: string): Promise<string> {
   try {
-    const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 8192,
-      messages: [{ role: "user", content: prompt }],
+    const response = await getClient().models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        maxOutputTokens: 8192,
+      },
     });
 
-    const content = message.content[0];
-    if (content.type !== "text") {
-      throw new Error("Unexpected response type from Claude");
+    const text = response.text;
+    if (!text) {
+      throw new Error("Empty response from Gemini");
     }
-    return content.text;
+    return text;
   } catch (err: unknown) {
-    const error = err as { status?: number; message?: string };
-    if (error.status === 429 || error.status === 529) {
+    const error = err as { status?: number; code?: number; message?: string };
+    const status = error.status ?? error.code;
+    if (
+      status === 429 ||
+      /rate limit|resource_exhausted|quota/i.test(error.message ?? "")
+    ) {
       throw new AIRateLimitError(error.message ?? "Rate limit exceeded");
     }
     throw err;
@@ -187,7 +203,7 @@ export async function generateTrip(input: TripInput): Promise<TripResponse> {
       prompt += buildFormatCorrectionContext(previousResponse, zodErrorMsg);
     }
 
-    const raw = await callClaude(prompt);
+    const raw = await callGemini(prompt);
     previousResponse = raw;
 
     try {
@@ -229,7 +245,7 @@ export async function generateAlternatives(
       )
       .replace("{{category}}", currentEvent.category);
 
-    const raw = await callClaude(prompt);
+    const raw = await callGemini(prompt);
 
     try {
       const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();

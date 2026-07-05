@@ -1,18 +1,24 @@
-import { config } from "dotenv";
-import { resolve } from "path";
+// Must be first: loads .env before any env-reading module (e.g. Prisma) is evaluated.
+import "./load-env";
 
-config({ path: resolve(process.cwd(), ".env.local") });
-config({ path: resolve(process.cwd(), ".env") });
-
-import { Worker } from "bullmq";
+import { Worker, type ConnectionOptions } from "bullmq";
 import { prisma } from "../src/lib/db/prisma";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 import IORedis from "ioredis";
 import { createHash } from "crypto";
 import { ZodError } from "zod";
 import { TripResponseSchema } from "../src/lib/schemas/trip.schema";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+
+let genai: GoogleGenAI | null = null;
+function getGenAI(): GoogleGenAI {
+  if (!genai) {
+    genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  }
+  return genai;
+}
+
 const redis = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
   maxRetriesPerRequest: null,
 });
@@ -108,13 +114,16 @@ async function generateTrip(input: JobData["input"]) {
 
   const MAX_RETRIES = 2;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const msg = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 8192,
-      messages: [{ role: "user", content: prompt }],
+    const response = await getGenAI().models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        maxOutputTokens: 8192,
+      },
     });
 
-    const text = msg.content[0].type === "text" ? msg.content[0].text : "";
+    const text = response.text ?? "";
     const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
     try {
@@ -184,7 +193,7 @@ const worker = new Worker<JobData>(
       return;
     }
 
-    // Generate with Claude
+    // Generate with Gemini
     const aiResult = await generateTrip(input);
 
     // Cache result
@@ -202,7 +211,9 @@ const worker = new Worker<JobData>(
     console.log(`[Worker] Completed job ${job.id} for trip ${tripId}`);
   },
   {
-    connection: redis,
+    // The app's ioredis and bullmq's bundled ioredis are separate copies, so
+    // the Redis instance must be cast to bullmq's expected connection type.
+    connection: redis as unknown as ConnectionOptions,
     concurrency: 3,
   }
 );
