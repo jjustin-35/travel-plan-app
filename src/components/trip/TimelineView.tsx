@@ -1,6 +1,7 @@
 "use client";
 
 import { DraggableTimeline } from "@/components/trip/DraggableTimeline";
+import { formatDateOnly } from "@/lib/date-format";
 
 type TripEvent = {
   id: string;
@@ -33,8 +34,7 @@ type TimelineViewProps = {
 };
 
 function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("zh-TW", { month: "short", day: "numeric" });
+  return formatDateOnly(dateStr);
 }
 
 export function TimelineView({

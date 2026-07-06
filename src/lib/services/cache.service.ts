@@ -1,26 +1,10 @@
 import { getRedisConnection } from "@/lib/queue/queue";
-import { createHash } from "crypto";
-import { TripInput, TripResponse } from "@/lib/schemas/trip.schema";
+import { buildCacheKey } from "@/lib/cache-key";
+import { TripResponse } from "@/lib/schemas/trip.schema";
 
 const CACHE_TTL_SECONDS = 600; // 10 minutes
 
-export function buildCacheKey(userId: string, input: TripInput): string {
-  const normalized = {
-    destination: input.destination.trim().toLowerCase(),
-    startDate: input.startDate,
-    endDate: input.endDate,
-    peopleCount: input.peopleCount,
-    tripType: input.tripType,
-    budgetRange: input.budgetRange ?? "",
-    preferredStyles: (input.preferredStyles ?? []).sort().join(","),
-    specialRequirements: (input.specialRequirements ?? "").trim().toLowerCase(),
-  };
-  const hash = createHash("sha256")
-    .update(JSON.stringify(normalized))
-    .digest("hex")
-    .slice(0, 16);
-  return `trip:${userId}:${hash}`;
-}
+export { buildCacheKey };
 
 export async function getCachedTrip(key: string): Promise<TripResponse | null> {
   const redis = getRedisConnection();

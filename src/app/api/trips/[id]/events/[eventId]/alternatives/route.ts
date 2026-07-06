@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateAlternatives } from "@/lib/services/ai-generation.service";
+import { getTripById } from "@/lib/db/trip.repository";
 import { TripEventSchema } from "@/lib/schemas/trip.schema";
 import { z, ZodError } from "zod";
 
@@ -15,10 +16,13 @@ const RequestBodySchema = z.object({
 type RouteParams = { params: Promise<{ id: string; eventId: string }> };
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
-  await params;
+  const { id, eventId } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const trip = await getTripById(id, user.id);
+  if (!trip) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   let body: unknown;
   try {
@@ -35,6 +39,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Invalid input", details: err.issues }, { status: 422 });
     }
     throw err;
+  }
+
+  if (parsed.event.id !== eventId) {
+    return NextResponse.json(
+      { error: "Event id in body does not match URL" },
+      { status: 422 }
+    );
+  }
+
+  const ownsEvent = trip.days.some((day) =>
+    day.events.some((event) => event.id === eventId)
+  );
+  if (!ownsEvent) {
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
   try {

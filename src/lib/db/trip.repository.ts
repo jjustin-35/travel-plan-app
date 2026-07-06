@@ -89,7 +89,7 @@ export async function updateTripEvents(
   tripId: string,
   userId: string,
   clientVersion: number,
-  clientModifiedAt: string,
+  _clientModifiedAt: string,
   days: Array<{
     dayNumber: number;
     events: Array<{
@@ -109,13 +109,12 @@ export async function updateTripEvents(
   return await prisma.$transaction(async (tx) => {
     const trip = await tx.trip.findFirst({
       where: { id: tripId, userId },
-      select: { id: true, version: true, updatedAt: true },
+      select: { id: true, version: true },
     });
 
     if (!trip) throw new Error("Trip not found");
 
-    const clientTime = new Date(clientModifiedAt);
-    if (clientTime < trip.updatedAt) {
+    if (clientVersion !== trip.version) {
       return { conflict: true, currentVersion: trip.version };
     }
 
@@ -152,7 +151,6 @@ export async function updateTripEvents(
       where: { id: tripId },
       data: {
         version: { increment: 1 },
-        updatedAt: clientTime,
       },
     });
 

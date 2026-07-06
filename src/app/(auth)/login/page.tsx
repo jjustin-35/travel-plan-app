@@ -2,22 +2,27 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { MapPin, Route, Share2, Plane } from "lucide-react";
 import { RippleButton } from "@/components/ui/RippleButton";
 
 function LoginContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
+  const [oauthError, setOauthError] = useState("");
 
   const handleGoogleLogin = async () => {
+    setOauthError("");
     const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
+    const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
+    if (signInError) {
+      setOauthError(signInError.message);
+    }
   };
 
   return (
@@ -54,9 +59,9 @@ function LoginContent() {
         </div>
 
         {/* Error message */}
-        {error && (
+        {(error || oauthError) && (
           <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 text-sm text-red-600">
-            登入失敗，請重試。
+            {oauthError || "登入失敗，請重試。"}
           </div>
         )}
 

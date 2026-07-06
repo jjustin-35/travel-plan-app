@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
+import { formatDateRangeOnly } from "@/lib/date-format";
 
 type Trip = {
   id: string;
@@ -37,9 +38,7 @@ function getDestinationEmoji(destination: string): string {
 }
 
 function formatDateRange(start: string, end: string): string {
-  const s = new Date(start);
-  const e = new Date(end);
-  return `${s.getMonth() + 1}/${s.getDate()} – ${e.getMonth() + 1}/${e.getDate()}`;
+  return formatDateRangeOnly(start, end);
 }
 
 export function TripCard({ trip }: { trip: Trip }) {
@@ -78,7 +77,15 @@ export function TripCard({ trip }: { trip: Trip }) {
   return (
     <>
       <div
+        role="button"
+        tabIndex={0}
         onClick={handleOpen}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleOpen();
+          }
+        }}
         className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
       >
       {/* Cover */}

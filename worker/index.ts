@@ -5,9 +5,10 @@ import { Worker, type ConnectionOptions } from "bullmq";
 import { prisma } from "../src/lib/db/prisma";
 import { GoogleGenAI } from "@google/genai";
 import IORedis from "ioredis";
-import { createHash } from "crypto";
 import { ZodError } from "zod";
 import { TripResponseSchema } from "../src/lib/schemas/trip.schema";
+import type { TripGenerationJobData } from "../src/lib/queue/queue";
+import { buildCacheKey } from "../src/lib/cache-key";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
@@ -23,41 +24,7 @@ const redis = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
   maxRetriesPerRequest: null,
 });
 
-type JobData = {
-  tripId: string;
-  userId: string;
-  input: {
-    destination: string;
-    startDate: string;
-    endDate: string;
-    days: number;
-    nights: number;
-    peopleCount: number;
-    tripType: string;
-    budgetRange?: string;
-    preferredStyles?: string[];
-    specialRequirements?: string;
-  };
-  idempotencyKey: string;
-};
-
-function buildCacheKey(userId: string, input: JobData["input"]): string {
-  const normalized = {
-    destination: input.destination.trim().toLowerCase(),
-    startDate: input.startDate,
-    endDate: input.endDate,
-    peopleCount: input.peopleCount,
-    tripType: input.tripType,
-    budgetRange: input.budgetRange ?? "",
-    preferredStyles: (input.preferredStyles ?? []).sort().join(","),
-    specialRequirements: (input.specialRequirements ?? "").trim().toLowerCase(),
-  };
-  const hash = createHash("sha256")
-    .update(JSON.stringify(normalized))
-    .digest("hex")
-    .slice(0, 16);
-  return `trip:${userId}:${hash}`;
-}
+type JobData = TripGenerationJobData;
 
 const BASE_PROMPT_TEMPLATE = `You are an expert travel planner. Generate a complete day-by-day travel itinerary in JSON format.
 

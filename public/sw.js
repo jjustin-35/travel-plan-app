@@ -57,22 +57,39 @@ self.addEventListener("fetch", (event) => {
 
   // Navigation (HTML pages): Network-first, fallback to cached shell
   if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request).catch(() => caches.match("/") || new Response("Offline"))
-    );
+    event.respondWith(handleNavigateRequest(request));
     return;
   }
 });
+
+async function handleNavigateRequest(request) {
+  try {
+    return await fetch(request);
+  } catch {
+    const cached = await caches.match("/");
+    if (cached) return cached;
+    return new Response("Offline", {
+      status: 503,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+}
 
 async function networkFirstWithCache(request, cacheName) {
   const cache = await caches.open(cacheName);
   try {
     const response = await fetch(request);
-    if (response.ok) {
+    if (response.ok && request.method === "GET") {
       cache.put(request, response.clone());
     }
     return response;
   } catch {
+    if (request.method !== "GET") {
+      return new Response(JSON.stringify({ error: "Offline" }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     const cached = await cache.match(request);
     if (cached) return cached;
     return new Response(JSON.stringify({ error: "Offline" }), {

@@ -194,13 +194,16 @@ async function callGemini(prompt: string): Promise<string> {
 export async function generateTrip(input: TripInput): Promise<TripResponse> {
   const MAX_INTERNAL_RETRIES = 2;
   let previousResponse = "";
+  let lastErrorMessage: string | undefined;
 
   for (let attempt = 0; attempt <= MAX_INTERNAL_RETRIES; attempt++) {
     let prompt = buildBasePrompt(input);
 
     if (attempt > 0 && previousResponse) {
-      const zodErrorMsg = "Previous response failed JSON schema validation.";
-      prompt += buildFormatCorrectionContext(previousResponse, zodErrorMsg);
+      const correctionMessage =
+        lastErrorMessage ??
+        "Previous response failed JSON schema validation.";
+      prompt += buildFormatCorrectionContext(previousResponse, correctionMessage);
     }
 
     const raw = await callGemini(prompt);
@@ -211,10 +214,13 @@ export async function generateTrip(input: TripInput): Promise<TripResponse> {
       const parsed = JSON.parse(cleaned);
       return TripResponseSchema.parse(parsed);
     } catch (err) {
-      if (err instanceof ZodError) {
+      const isRetryable = err instanceof ZodError || err instanceof SyntaxError;
+      if (isRetryable) {
+        lastErrorMessage =
+          err instanceof Error ? err.message : "Invalid JSON response";
         if (attempt === MAX_INTERNAL_RETRIES) {
           throw new AIValidationError(
-            `AI returned invalid format after ${MAX_INTERNAL_RETRIES + 1} attempts: ${err.message}`
+            `AI returned invalid format after ${MAX_INTERNAL_RETRIES + 1} attempts: ${lastErrorMessage}`
           );
         }
         continue;
@@ -232,9 +238,11 @@ export async function generateAlternatives(
   dayDate: string
 ): Promise<TripEvent[]> {
   const MAX_INTERNAL_RETRIES = 2;
+  let previousResponse = "";
+  let lastErrorMessage: string | undefined;
 
   for (let attempt = 0; attempt <= MAX_INTERNAL_RETRIES; attempt++) {
-    const prompt = ALTERNATIVES_PROMPT_TEMPLATE.replace(
+    let prompt = ALTERNATIVES_PROMPT_TEMPLATE.replace(
       "{{current_event_json}}",
       JSON.stringify(currentEvent, null, 2)
     )
@@ -245,14 +253,25 @@ export async function generateAlternatives(
       )
       .replace("{{category}}", currentEvent.category);
 
+    if (attempt > 0 && previousResponse) {
+      const correctionMessage =
+        lastErrorMessage ??
+        "Previous response failed JSON schema validation.";
+      prompt += buildFormatCorrectionContext(previousResponse, correctionMessage);
+    }
+
     const raw = await callGemini(prompt);
+    previousResponse = raw;
 
     try {
       const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       const parsed = JSON.parse(cleaned);
       return AlternativeEventsSchema.parse(parsed);
     } catch (err) {
-      if (err instanceof ZodError) {
+      const isRetryable = err instanceof ZodError || err instanceof SyntaxError;
+      if (isRetryable) {
+        lastErrorMessage =
+          err instanceof Error ? err.message : "Invalid JSON response";
         if (attempt === MAX_INTERNAL_RETRIES) {
           throw new AIValidationError("Failed to generate valid alternatives");
         }

@@ -17,9 +17,16 @@ function createPool(): Pool {
     connectionString.includes("localhost") ||
     connectionString.includes("127.0.0.1");
 
+  const ssl =
+    isLocal
+      ? undefined
+      : process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false"
+        ? { rejectUnauthorized: false }
+        : true;
+
   return new Pool({
     connectionString,
-    ssl: isLocal ? undefined : { rejectUnauthorized: false },
+    ssl,
   });
 }
 

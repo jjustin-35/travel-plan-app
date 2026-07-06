@@ -44,36 +44,65 @@ export async function POST(request: NextRequest) {
     const { getTripQueue } = await import("@/lib/queue/queue");
     const idempotencyKey = randomUUID();
 
-    const trip = await prisma.trip.create({
-      data: {
-        userId: user.id,
-        title: `${input.destination} 行程`,
-        destination: input.destination,
-        peopleCount: input.peopleCount,
-        tripType: input.tripType,
-        startDate: new Date(input.startDate),
-        endDate: new Date(input.endDate),
-        status: "generating",
-      },
+    const { trip, job } = await prisma.$transaction(async (tx) => {
+      const createdTrip = await tx.trip.create({
+        data: {
+          userId: user.id,
+          title: `${input.destination} 行程`,
+          destination: input.destination,
+          peopleCount: input.peopleCount,
+          tripType: input.tripType,
+          startDate: new Date(input.startDate),
+          endDate: new Date(input.endDate),
+          status: "generating",
+        },
+      });
+
+      const createdJob = await tx.aIGenerationJob.create({
+        data: {
+          tripId: createdTrip.id,
+          userId: user.id,
+          idempotencyKey,
+          status: "pending",
+          promptInput: JSON.parse(JSON.stringify(input)),
+        },
+      });
+
+      return { trip: createdTrip, job: createdJob };
     });
 
-    await prisma.aIGenerationJob.create({
-      data: {
-        tripId: trip.id,
-        userId: user.id,
-        idempotencyKey,
-        status: "pending",
-        promptInput: JSON.parse(JSON.stringify(input)),
-      },
-    });
+    try {
+      await getTripQueue().add(
+        "generate-trip",
+        { tripId: trip.id, userId: user.id, input, idempotencyKey },
+        { jobId: idempotencyKey }
+      );
+    } catch (err) {
+      await prisma.$transaction([
+        prisma.trip.update({
+          where: { id: trip.id },
+          data: { status: "failed" },
+        }),
+        prisma.aIGenerationJob.update({
+          where: { id: job.id },
+          data: {
+            status: "failed",
+            errorMessage:
+              err instanceof Error ? err.message : "Failed to enqueue generation job",
+          },
+        }),
+      ]);
+      console.error("POST /api/trips queue error:", err);
+      return NextResponse.json(
+        { error: "Failed to start trip generation, please try again" },
+        { status: 500 }
+      );
+    }
 
-    await getTripQueue().add(
-      "generate-trip",
-      { tripId: trip.id, userId: user.id, input, idempotencyKey },
-      { jobId: idempotencyKey }
+    return NextResponse.json(
+      { trip, jobId: job.id, async: true },
+      { status: 202 }
     );
-
-    return NextResponse.json({ trip, async: true }, { status: 202 });
   } else {
     // Sync path (no Redis): call Gemini directly
     const { createTrip } = await import("@/lib/services/trip.service");

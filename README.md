@@ -21,7 +21,7 @@ npm install
 
 # 2. 設定環境變數
 cp .env.local.example .env.local
-# 填入 SUPABASE_URL、SUPABASE_ANON_KEY、GEMINI_API_KEY
+# 填入 NEXT_PUBLIC_SUPABASE_URL、NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY、GEMINI_API_KEY
 
 # 3. 產生 Prisma Client 並執行 DB Migration（需先在 .env.local 設定 DATABASE_URL 和 DIRECT_URL）
 # DATABASE_URL: Supabase > Project Settings > Database > Transaction mode connection string（執行時連線）

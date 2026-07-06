@@ -52,42 +52,43 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const aiResult = await generateTrip(input);
 
-    await prisma.$transaction([
-      prisma.tripDay.deleteMany({ where: { tripId: id } }),
-      prisma.trip.update({
+    await prisma.$transaction(async (tx) => {
+      await tx.tripDay.deleteMany({ where: { tripId: id } });
+
+      for (const day of aiResult.trip.days) {
+        const tripDay = await tx.tripDay.create({
+          data: {
+            tripId: id,
+            dayNumber: day.day,
+            date: new Date(day.date),
+          },
+        });
+        await tx.tripEvent.createMany({
+          data: day.events.map((e) => ({
+            id: e.id,
+            tripDayId: tripDay.id,
+            title: e.title,
+            location: e.location,
+            description: e.description,
+            category: e.category,
+            eventTime: e.event_time,
+            durationMinutes: e.duration_minutes,
+            sortOrder: e.sort_order,
+            lat: e.lat,
+            lng: e.lng,
+          })),
+        });
+      }
+
+      await tx.trip.update({
         where: { id },
         data: {
           title: aiResult.trip.title,
           status: "ready",
           version: { increment: 1 },
         },
-      }),
-    ]);
-
-    for (const day of aiResult.trip.days) {
-      const tripDay = await prisma.tripDay.create({
-        data: {
-          tripId: id,
-          dayNumber: day.day,
-          date: new Date(day.date),
-        },
       });
-      await prisma.tripEvent.createMany({
-        data: day.events.map((e) => ({
-          id: e.id,
-          tripDayId: tripDay.id,
-          title: e.title,
-          location: e.location,
-          description: e.description,
-          category: e.category,
-          eventTime: e.event_time,
-          durationMinutes: e.duration_minutes,
-          sortOrder: e.sort_order,
-          lat: e.lat,
-          lng: e.lng,
-        })),
-      });
-    }
+    });
 
     const updated = await getTripById(id, user.id);
     return NextResponse.json({ trip: updated });

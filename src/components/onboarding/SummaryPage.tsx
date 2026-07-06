@@ -54,9 +54,15 @@ export function SummaryPage() {
         throw new Error(data.error || "送出失敗，請稍後重試");
       }
 
-      const { trip } = await res.json();
+      const data = await res.json();
       store.reset();
-      router.push(`/trips/${trip.id}`);
+
+      if (data.trip?.id) {
+        router.push(`/trips/${data.trip.id}`);
+        return;
+      }
+
+      throw new Error("伺服器回應格式不正確，請稍後重試");
     } catch (err) {
       setError(err instanceof Error ? err.message : "發生未知錯誤");
       setIsLoading(false);

@@ -64,6 +64,7 @@ export function EditEventModal({ event, isNew = false, onSave, onClose }: EditEv
   });
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (event) setForm({ ...event });
   }, [event]);
 
@@ -193,7 +194,7 @@ export function EditEventModal({ event, isNew = false, onSave, onClose }: EditEv
           {/* Location */}
           <div>
             <label className="flex items-center gap-1.5 text-xs font-semibold text-muted mb-1.5">
-              <Navigation size={13} /> 地址
+              <Navigation size={13} /> 地址 *
             </label>
             <input
               value={form.location}

@@ -6,6 +6,7 @@ import {
   closestCenter,
   PointerSensor,
   TouchSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -16,6 +17,7 @@ import {
   verticalListSortingStrategy,
   useSortable,
   arrayMove,
+  sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { EventCard } from "@/components/trip/EventCard";
@@ -88,6 +90,9 @@ export function DraggableTimeline({
     }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: LONG_PRESS_MS, tolerance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
     })
   );
 
