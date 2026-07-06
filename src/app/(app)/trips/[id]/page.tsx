@@ -10,6 +10,7 @@ import { RippleButton } from "@/components/ui/RippleButton";
 import { ArrowLeft, RefreshCw, Share2, Plus, WifiOff, RefreshCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { buildTripPatchPayload } from "@/lib/tripPatchPayload";
 
 type TripEvent = {
   id: string;
@@ -36,6 +37,7 @@ type Trip = {
   title: string;
   destination: string;
   status: string;
+  version?: number;
   days: TripDay[];
 };
 
@@ -48,14 +50,21 @@ async function fetchTrip(id: string): Promise<Trip> {
 
 async function batchUpdateEvents(
   tripId: string,
-  dayId: string,
-  events: TripEvent[]
+  day: TripDay,
+  events: TripEvent[],
+  clientVersion?: number
 ) {
-  await fetch(`/api/trips/${tripId}`, {
+  const res = await fetch(`/api/trips/${tripId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dayId, events }),
+    body: JSON.stringify(
+      buildTripPatchPayload(
+        [{ dayNumber: day.dayNumber, events }],
+        clientVersion
+      )
+    ),
   });
+  if (!res.ok) throw new Error("Failed to save trip events");
 }
 
 export default function TripDetailPage() {
@@ -120,30 +129,33 @@ export default function TripDetailPage() {
 
   /** Debounced batch update for a given day */
   const scheduleBatchUpdate = useCallback(
-    (dayId: string, events: TripEvent[]) => {
-      const existing = debounceTimers.current.get(dayId);
+    (day: TripDay, events: TripEvent[]) => {
+      const existing = debounceTimers.current.get(day.id);
       if (existing) clearTimeout(existing);
       const timer = setTimeout(async () => {
-        debounceTimers.current.delete(dayId);
+        debounceTimers.current.delete(day.id);
         setIsSaving(true);
-        await batchUpdateEvents(id, dayId, events).catch(console.error);
+        await batchUpdateEvents(id, day, events, trip?.version).catch(console.error);
         setIsSaving(false);
       }, 800);
-      debounceTimers.current.set(dayId, timer);
+      debounceTimers.current.set(day.id, timer);
     },
-    [id]
+    [id, trip?.version]
   );
 
   const handleEventsChange = useCallback(
     (dayId: string, events: TripEvent[]) => {
+      const targetDay = localDays.find((day) => day.id === dayId);
+      if (!targetDay) return;
+
       setLocalDays((prev) =>
         prev.map((d) => (d.id === dayId ? { ...d, events } : d))
       );
       // Write to IDB immediately, then debounce remote sync
-      saveEventsOffline(dayId, events).catch(console.error);
-      scheduleBatchUpdate(dayId, events);
+      saveEventsOffline(targetDay, events).catch(console.error);
+      scheduleBatchUpdate(targetDay, events);
     },
-    [scheduleBatchUpdate, saveEventsOffline]
+    [localDays, scheduleBatchUpdate, saveEventsOffline]
   );
 
   const handleEditEvent = useCallback((event: TripEvent) => {

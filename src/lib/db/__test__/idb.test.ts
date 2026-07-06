@@ -63,15 +63,16 @@ describe("idb", () => {
 
   it("queues and retrieves pending syncs", async () => {
     const events = [uiTripEvent];
-    await queueSync("trip-1", "day-1", events);
+    await queueSync("trip-1", "day-1", 1, events);
     const pending = await getAllPendingSyncs();
     expect(pending).toHaveLength(1);
+    expect(pending[0].dayNumber).toBe(1);
     expect(pending[0].events).toEqual(events);
     expect(pending[0].id).toBe("trip-1__day-1");
   });
 
   it("resolves pending sync by trip and day", async () => {
-    await queueSync("trip-1", "day-1", [uiTripEvent]);
+    await queueSync("trip-1", "day-1", 1, [uiTripEvent]);
     await resolveSync("trip-1", "day-1");
     expect(await getAllPendingSyncs()).toHaveLength(0);
   });

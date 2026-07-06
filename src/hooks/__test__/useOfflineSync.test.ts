@@ -22,6 +22,7 @@ const sampleTrip = {
   title: "東京五日遊",
   destination: "東京",
   status: "ready",
+  version: 3,
   startDate: "2026-04-01",
   endDate: "2026-04-05",
   days: [
@@ -81,12 +82,12 @@ describe("useOfflineSync", () => {
     );
 
     await act(async () => {
-      await result.current.saveEventsOffline("day-1", updatedEvents);
+      await result.current.saveEventsOffline(sampleTrip.days[0], updatedEvents);
     });
 
     expect(mockGetCachedTrip).toHaveBeenCalledWith("trip-1");
     expect(mockCacheTrip).toHaveBeenCalled();
-    expect(mockQueueSync).toHaveBeenCalledWith("trip-1", "day-1", updatedEvents);
+    expect(mockQueueSync).toHaveBeenCalledWith("trip-1", "day-1", 1, updatedEvents);
     expect(result.current.hasPendingSync).toBe(true);
   });
 
@@ -97,6 +98,7 @@ describe("useOfflineSync", () => {
           id: "trip-1__day-1",
           tripId: "trip-1",
           dayId: "day-1",
+          dayNumber: 1,
           events: [uiTripEvent],
           updatedAt: Date.now(),
         },
@@ -114,6 +116,22 @@ describe("useOfflineSync", () => {
         "/api/trips/trip-1",
         expect.objectContaining({ method: "PATCH" })
       );
+      const [, init] = vi.mocked(fetch).mock.calls[0];
+      expect(JSON.parse(init?.body as string)).toMatchObject({
+        client_version: 3,
+        days: [
+          {
+            day_number: 1,
+            events: [
+              {
+                event_time: uiTripEvent.eventTime,
+                duration_minutes: uiTripEvent.durationMinutes,
+                sort_order: uiTripEvent.sortOrder,
+              },
+            ],
+          },
+        ],
+      });
       expect(mockResolveSync).toHaveBeenCalledWith("trip-1", "day-1");
     });
   });

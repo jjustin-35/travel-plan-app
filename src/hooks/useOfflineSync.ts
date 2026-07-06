@@ -9,6 +9,7 @@ import {
   resolveSync,
   CachedTrip,
 } from "@/lib/db/idb";
+import { buildTripPatchPayload } from "@/lib/tripPatchPayload";
 
 type TripEvent = {
   id: string;
@@ -35,6 +36,7 @@ type Trip = {
   title: string;
   destination: string;
   status: string;
+  version?: number;
   startDate?: string;
   endDate?: string;
   days: TripDay[];
@@ -48,7 +50,7 @@ type UseOfflineSyncOptions = {
 type UseOfflineSyncReturn = {
   isOnline: boolean;
   hasPendingSync: boolean;
-  saveEventsOffline: (dayId: string, events: TripEvent[]) => Promise<void>;
+  saveEventsOffline: (day: TripDay, events: TripEvent[]) => Promise<void>;
 };
 
 export function useOfflineSync({
@@ -103,14 +105,21 @@ export function useOfflineSync({
 
         await Promise.all(
           mine.map(async (sync) => {
+            const dayNumber =
+              sync.dayNumber ??
+              trip?.days.find((day) => day.id === sync.dayId)?.dayNumber;
+            if (!dayNumber) return;
+
             try {
               const res = await fetch(`/api/trips/${sync.tripId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  dayId: sync.dayId,
-                  events: sync.events,
-                }),
+                body: JSON.stringify(
+                  buildTripPatchPayload(
+                    [{ dayNumber, events: sync.events }],
+                    trip?.version
+                  )
+                ),
               });
               if (res.ok) await resolveSync(sync.tripId, sync.dayId);
             } catch {
@@ -127,20 +136,20 @@ export function useOfflineSync({
     };
 
     flush();
-  }, [isOnline, tripId]);
+  }, [isOnline, tripId, trip]);
 
   // Save events to IDB (and queue for sync if offline)
-  const saveEventsOffline = async (dayId: string, events: TripEvent[]) => {
+  const saveEventsOffline = async (day: TripDay, events: TripEvent[]) => {
     // Update IDB cache immediately
     const cached = await getCachedTrip(tripId);
     if (cached) {
       const updatedDays = cached.days.map((d: TripDay) =>
-        d.id === dayId ? { ...d, events } : d
+        d.id === day.id ? { ...d, events } : d
       );
       await cacheTrip({ ...cached, days: updatedDays });
     }
     // Queue for remote sync
-    await queueSync(tripId, dayId, events);
+    await queueSync(tripId, day.id, day.dayNumber, events);
     setHasPendingSync(true);
   };
 
