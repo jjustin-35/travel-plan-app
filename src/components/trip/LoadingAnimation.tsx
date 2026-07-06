@@ -131,13 +131,6 @@ export function LoadingAnimation({ destination }: { destination?: string }) {
           <p className="mt-1 text-sm text-muted">{MESSAGES[msgIndex].sub}</p>
         </div>
 
-        {/* Indeterminate progress bar */}
-        <div className="mx-auto mt-6 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-butter">
-          <div
-            className="h-full w-1/3 rounded-full bg-coral"
-            style={{ animation: "plane-fly 1.8s ease-in-out infinite" }}
-          />
-        </div>
       </div>
 
       {/* Message dots + tip */}

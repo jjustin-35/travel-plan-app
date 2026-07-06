@@ -22,6 +22,7 @@ const sampleTrip = {
   title: "東京五日遊",
   destination: "東京",
   status: "ready",
+  version: 1,
   startDate: "2026-04-01",
   endDate: "2026-04-05",
   days: [
@@ -112,7 +113,10 @@ describe("useOfflineSync", () => {
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(
         "/api/trips/trip-1",
-        expect.objectContaining({ method: "PATCH" })
+        expect.objectContaining({
+          method: "PATCH",
+          body: expect.stringContaining('"client_version":1'),
+        })
       );
       expect(mockResolveSync).toHaveBeenCalledWith("trip-1", "day-1");
     });

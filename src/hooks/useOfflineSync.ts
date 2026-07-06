@@ -9,6 +9,7 @@ import {
   resolveSync,
   CachedTrip,
 } from "@/lib/db/idb";
+import { buildTripPatchBody } from "@/lib/trip-patch";
 
 type TripEvent = {
   id: string;
@@ -35,6 +36,7 @@ type Trip = {
   title: string;
   destination: string;
   status: string;
+  version: number;
   startDate?: string;
   endDate?: string;
   days: TripDay[];
@@ -60,6 +62,7 @@ export function useOfflineSync({
   );
   const [hasPendingSync, setHasPendingSync] = useState(false);
   const isSyncingRef = useRef(false);
+  const tripVersionRef = useRef(1);
 
   // Update online status
   useEffect(() => {
@@ -76,6 +79,7 @@ export function useOfflineSync({
   // Cache trip to IndexedDB whenever server data arrives
   useEffect(() => {
     if (!trip) return;
+    tripVersionRef.current = trip.version ?? 1;
     cacheTrip({
       id: trip.id,
       title: trip.title,
@@ -83,6 +87,7 @@ export function useOfflineSync({
       status: trip.status,
       startDate: trip.startDate ?? "",
       endDate: trip.endDate ?? "",
+      version: trip.version ?? 1,
       days: trip.days,
     }).catch(console.error);
   }, [trip]);
@@ -101,18 +106,29 @@ export function useOfflineSync({
           return;
         }
 
+        const cached = await getCachedTrip(tripId);
+
         await Promise.all(
           mine.map(async (sync) => {
             try {
+              const day = cached?.days.find((d) => d.id === sync.dayId);
+              if (!day) return;
+
               const res = await fetch(`/api/trips/${sync.tripId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  dayId: sync.dayId,
-                  events: sync.events,
-                }),
+                body: JSON.stringify(
+                  buildTripPatchBody(
+                    cached?.version ?? tripVersionRef.current,
+                    day.dayNumber,
+                    sync.events
+                  )
+                ),
               });
-              if (res.ok) await resolveSync(sync.tripId, sync.dayId);
+              if (res.ok) {
+                tripVersionRef.current += 1;
+                await resolveSync(sync.tripId, sync.dayId);
+              }
             } catch {
               // Stay queued, will retry next time online
             }

@@ -68,8 +68,8 @@ export function EventCard({ event, onTap, isDragging }: EventCardProps) {
       className={[
         "w-full text-left bg-card rounded-2xl p-4 border transition-all select-none",
         isDragging
-          ? "border-coral shadow-lg ring-2 ring-coral/30 scale-[1.02]"
-          : "border-border shadow-sm hover:border-coral/40 active:scale-[0.99]",
+          ? "border-coral shadow-lg ring-2 ring-coral/30 scale-[1.02] cursor-grab"
+          : "border-border shadow-sm hover:border-coral/40 active:scale-[0.99] cursor-pointer",
       ].join(" ")}
     >
       <div className="flex items-start gap-3">

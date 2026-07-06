@@ -15,6 +15,7 @@ const sampleTrip = {
   title: "東京五日遊",
   destination: "東京",
   status: "ready",
+  version: 1,
   startDate: "2026-04-01",
   endDate: "2026-04-05",
   days: [

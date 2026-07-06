@@ -72,9 +72,7 @@ type DraggableTimelineProps = {
 };
 
 export function DraggableTimeline({
-  tripId,
   dayId,
-  dayDate,
   events,
   onEventsChange,
   onEditEvent,

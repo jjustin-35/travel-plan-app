@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { listTrips } from "@/lib/services/trip.service";
-import Link from "next/link";
-import { Plus, User, Map } from "lucide-react";
+import { User, Map } from "lucide-react";
 import { TripCard } from "@/components/trip/TripCard";
+import { AddFab } from "@/components/ui/AddFab";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -109,14 +109,7 @@ export default async function HomePage() {
         )}
       </div>
 
-      {/* FAB */}
-      <Link
-        href="/onboarding"
-        className="fixed bottom-8 right-6 w-14 h-14 bg-coral text-white rounded-full flex items-center justify-center hover:bg-wood transition-all active:scale-95 z-50"
-        style={{ boxShadow: "0 8px 24px rgba(233,116,81,0.45)" }}
-      >
-        <Plus size={24} strokeWidth={2.5} />
-      </Link>
+      <AddFab href="/onboarding" title="新增行程" />
     </div>
   );
 }

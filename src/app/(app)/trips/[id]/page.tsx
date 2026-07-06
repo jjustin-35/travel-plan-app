@@ -7,9 +7,11 @@ import { TimelineView } from "@/components/trip/TimelineView";
 import { LoadingAnimation } from "@/components/trip/LoadingAnimation";
 import { EditEventModal } from "@/components/trip/EditEventModal";
 import { RippleButton } from "@/components/ui/RippleButton";
-import { ArrowLeft, RefreshCw, Share2, Plus, WifiOff, RefreshCcw } from "lucide-react";
+import { AddFab } from "@/components/ui/AddFab";
+import { ArrowLeft, RefreshCw, Share2, WifiOff, RefreshCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { buildTripPatchBody } from "@/lib/trip-patch";
 
 type TripEvent = {
   id: string;
@@ -36,6 +38,7 @@ type Trip = {
   title: string;
   destination: string;
   status: string;
+  version: number;
   days: TripDay[];
 };
 
@@ -48,14 +51,16 @@ async function fetchTrip(id: string): Promise<Trip> {
 
 async function batchUpdateEvents(
   tripId: string,
-  dayId: string,
+  clientVersion: number,
+  dayNumber: number,
   events: TripEvent[]
 ) {
-  await fetch(`/api/trips/${tripId}`, {
+  const res = await fetch(`/api/trips/${tripId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dayId, events }),
+    body: JSON.stringify(buildTripPatchBody(clientVersion, dayNumber, events)),
   });
+  return res;
 }
 
 export default function TripDetailPage() {
@@ -70,6 +75,8 @@ export default function TripDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const debounceTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const localDaysRef = useRef<TripDay[]>([]);
+  const tripVersionRef = useRef(1);
 
   const { data: trip, isLoading, isError } = useQuery({
     queryKey: ["trip", id],
@@ -87,6 +94,8 @@ export default function TripDetailPage() {
       }));
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalDays(days);
+      localDaysRef.current = days;
+      tripVersionRef.current = trip.version ?? 1;
     }
   }, [trip]);
 
@@ -126,20 +135,41 @@ export default function TripDetailPage() {
       if (existing) clearTimeout(existing);
       const timer = setTimeout(async () => {
         debounceTimers.current.delete(dayId);
+        const day = localDaysRef.current.find((d) => d.id === dayId);
+        if (!day) return;
+
         setIsSaving(true);
-        await batchUpdateEvents(id, dayId, events).catch(console.error);
-        setIsSaving(false);
+        try {
+          const res = await batchUpdateEvents(
+            id,
+            tripVersionRef.current,
+            day.dayNumber,
+            events
+          );
+          if (res.ok) {
+            tripVersionRef.current += 1;
+            queryClient.invalidateQueries({ queryKey: ["trip", id] });
+          } else {
+            console.error("Failed to save trip events", await res.text());
+          }
+        } catch (error) {
+          console.error(error);
+        } finally {
+          setIsSaving(false);
+        }
       }, 800);
       debounceTimers.current.set(dayId, timer);
     },
-    [id]
+    [id, queryClient]
   );
 
   const handleEventsChange = useCallback(
     (dayId: string, events: TripEvent[]) => {
-      setLocalDays((prev) =>
-        prev.map((d) => (d.id === dayId ? { ...d, events } : d))
-      );
+      setLocalDays((prev) => {
+        const next = prev.map((d) => (d.id === dayId ? { ...d, events } : d));
+        localDaysRef.current = next;
+        return next;
+      });
       // Write to IDB immediately, then debounce remote sync
       saveEventsOffline(dayId, events).catch(console.error);
       scheduleBatchUpdate(dayId, events);
@@ -300,15 +330,7 @@ export default function TripDetailPage() {
       </div>
 
       {/* FAB: Add event */}
-      <RippleButton
-        position="fixed"
-        onClick={() => handleAddEvent(activeDay)}
-        className="fixed bottom-6 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-coral text-white z-40 transition-transform active:scale-95"
-        style={{ boxShadow: "0 6px 18px rgba(233,116,81,0.40)" }}
-        title="新增行程節點"
-      >
-        <Plus size={18} strokeWidth={2.5} />
-      </RippleButton>
+      <AddFab onClick={() => handleAddEvent(activeDay)} title="新增行程節點" />
 
       {/* Edit / Create Event Modal */}
       {(editingEvent !== null || addingForDay !== null) && (

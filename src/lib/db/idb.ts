@@ -27,6 +27,7 @@ export type CachedTrip = {
   status: string;
   startDate: string;
   endDate: string;
+  version: number;
   days: TripDay[];
   cachedAt: number;
 };
