@@ -5,13 +5,13 @@
 ## 技術棧
 
 - **框架**: Next.js 15 (App Router) + TypeScript
-- **樣式**: Tailwind CSS v4（暖色調 Design Token）
+- **樣式**: Tailwind CSS v4
 - **Auth**: Supabase Auth (Google OAuth)
-- **DB**: Supabase PostgreSQL + Prisma v5
+- **DB**: Supabase PostgreSQL + Prisma v7 (`@prisma/adapter-pg`)
 - **AI**: Claude Sonnet 4.5 (Anthropic)
-- **Queue**: BullMQ + Redis（Phase 7 加入）
+- **Queue**: BullMQ + Redis
 - **State**: React Query + Zustand
-- **PWA**: next-pwa + IndexedDB（Phase 10 加入）
+- **PWA**: next-pwa + IndexedDB
 
 ## 快速開始
 
@@ -23,8 +23,11 @@ npm install
 cp .env.local.example .env.local
 # 填入 SUPABASE_URL、SUPABASE_ANON_KEY、ANTHROPIC_API_KEY
 
-# 3. 執行 DB Migration（需先設定 Supabase 連線）
-npx prisma migrate dev
+# 3. 產生 Prisma Client 並執行 DB Migration（需先在 .env.local 設定 DATABASE_URL 和 DIRECT_URL）
+# DATABASE_URL: Supabase > Project Settings > Database > Transaction mode connection string（執行時連線）
+# DIRECT_URL: Supabase > Project Settings > Database > Session mode connection string（migrate 用）
+npm run db:generate
+npm run db:migrate -- --name init
 
 # 4. 在 Supabase SQL Editor 執行 trigger
 # 複製 supabase/seed.sql 內容貼上執行
