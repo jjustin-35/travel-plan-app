@@ -1,6 +1,27 @@
 import { prisma } from "@/lib/db/prisma";
 import { TripResponse, TripInput } from "@/lib/schemas/trip.schema";
 
+function mapEventToDb(
+  event: TripResponse["trip"]["days"][number]["events"][number],
+  tripDayId: string
+) {
+  return {
+    id: event.id,
+    tripDayId,
+    title: event.title,
+    location: event.location,
+    description: event.description,
+    category: event.category,
+    eventTime: event.event_time,
+    durationMinutes: event.duration_minutes,
+    sortOrder: event.sort_order,
+    lat: event.lat,
+    lng: event.lng,
+    travelFromMode: event.travel_from_mode,
+    travelFromMinutes: event.travel_from_minutes,
+  };
+}
+
 export async function createTripWithDays(
   userId: string,
   input: TripInput,
@@ -16,6 +37,7 @@ export async function createTripWithDays(
         destination: input.destination,
         peopleCount: input.peopleCount,
         tripType: input.tripType,
+        preferredTransportModes: input.preferredTransportModes ?? [],
         startDate: new Date(input.startDate),
         endDate: new Date(input.endDate),
         status: "ready",
@@ -32,19 +54,7 @@ export async function createTripWithDays(
       });
 
       await tx.tripEvent.createMany({
-        data: day.events.map((event) => ({
-          id: event.id,
-          tripDayId: tripDay.id,
-          title: event.title,
-          location: event.location,
-          description: event.description,
-          category: event.category,
-          eventTime: event.event_time,
-          durationMinutes: event.duration_minutes,
-          sortOrder: event.sort_order,
-          lat: event.lat,
-          lng: event.lng,
-        })),
+        data: day.events.map((event) => mapEventToDb(event, tripDay.id)),
       });
     }
 
@@ -85,6 +95,21 @@ export async function getTripById(tripId: string, userId: string) {
   });
 }
 
+export type TripEventUpdate = {
+  id: string;
+  title: string;
+  location: string;
+  description: string;
+  category: string;
+  eventTime: string;
+  durationMinutes: number;
+  sortOrder: number;
+  lat: number;
+  lng: number;
+  travelFromMode: string | null;
+  travelFromMinutes: number | null;
+};
+
 export async function updateTripEvents(
   tripId: string,
   userId: string,
@@ -92,18 +117,7 @@ export async function updateTripEvents(
   _clientModifiedAt: string,
   days: Array<{
     dayNumber: number;
-    events: Array<{
-      id: string;
-      title: string;
-      location: string;
-      description: string;
-      category: string;
-      eventTime: string;
-      durationMinutes: number;
-      sortOrder: number;
-      lat: number;
-      lng: number;
-    }>;
+    events: TripEventUpdate[];
   }>
 ) {
   return await prisma.$transaction(async (tx) => {
@@ -143,6 +157,8 @@ export async function updateTripEvents(
           sortOrder: e.sortOrder,
           lat: e.lat,
           lng: e.lng,
+          travelFromMode: e.travelFromMode,
+          travelFromMinutes: e.travelFromMinutes,
         })),
       });
     }

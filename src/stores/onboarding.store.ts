@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { TripInput } from "@/lib/schemas/trip.schema";
+import { TripInput, TransportMode } from "@/lib/schemas/trip.schema";
 
 type OnboardingState = {
   currentStep: number;
@@ -12,6 +12,7 @@ type OnboardingState = {
   tripType: string;
   budgetRange: string;
   preferredStyles: string[];
+  preferredTransportModes: TransportMode[];
   specialRequirements: string;
 };
 
@@ -25,12 +26,13 @@ type OnboardingActions = {
   setTripType: (type: string) => void;
   setBudgetRange: (range: string) => void;
   toggleStyle: (style: string) => void;
+  toggleTransportMode: (mode: TransportMode) => void;
   setSpecialRequirements: (req: string) => void;
   reset: () => void;
   toTripInput: () => TripInput;
 };
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 8;
 
 const initialState: OnboardingState = {
   currentStep: 1,
@@ -43,6 +45,7 @@ const initialState: OnboardingState = {
   tripType: "",
   budgetRange: "",
   preferredStyles: [],
+  preferredTransportModes: [],
   specialRequirements: "",
 };
 
@@ -78,6 +81,13 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>(
           : [...s.preferredStyles, style],
       })),
 
+    toggleTransportMode: (mode) =>
+      set((s) => ({
+        preferredTransportModes: s.preferredTransportModes.includes(mode)
+          ? s.preferredTransportModes.filter((x) => x !== mode)
+          : [...s.preferredTransportModes, mode],
+      })),
+
     setSpecialRequirements: (specialRequirements) =>
       set({ specialRequirements }),
 
@@ -96,8 +106,14 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>(
         budgetRange: s.budgetRange || undefined,
         preferredStyles:
           s.preferredStyles.length > 0 ? s.preferredStyles : undefined,
+        preferredTransportModes:
+          s.preferredTransportModes.length > 0
+            ? s.preferredTransportModes
+            : undefined,
         specialRequirements: s.specialRequirements || undefined,
       };
     },
   })
 );
+
+export { TOTAL_STEPS as ONBOARDING_TOTAL_STEPS };

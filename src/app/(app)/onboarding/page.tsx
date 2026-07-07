@@ -1,11 +1,12 @@
 "use client";
 
-import { useOnboardingStore } from "@/stores/onboarding.store";
+import { useOnboardingStore, ONBOARDING_TOTAL_STEPS } from "@/stores/onboarding.store";
 import { ProgressBar } from "@/components/onboarding/ProgressBar";
 import { StepDestination } from "@/components/onboarding/StepDestination";
 import { StepDates } from "@/components/onboarding/StepDates";
 import { StepPeople } from "@/components/onboarding/StepPeople";
 import { StepTripType } from "@/components/onboarding/StepTripType";
+import { StepTransport } from "@/components/onboarding/StepTransport";
 import { StepBudget } from "@/components/onboarding/StepBudget";
 import { StepStyles } from "@/components/onboarding/StepStyles";
 import { StepRequirements } from "@/components/onboarding/StepRequirements";
@@ -14,14 +15,15 @@ import { RippleButton } from "@/components/ui/RippleButton";
 import { ChevronLeft, ArrowRight } from "lucide-react";
 import { useMemo, useState } from "react";
 
-const TOTAL_STEPS = 7;
-const OPTIONAL_STEPS = new Set([5, 6, 7]);
+const TOTAL_STEPS = ONBOARDING_TOTAL_STEPS;
+const OPTIONAL_STEPS = new Set([5, 6, 7, 8]);
 
 const STEP_LABELS = [
   "目的地",
   "日期",
   "人數",
   "性質",
+  "交通",
   "預算",
   "風格",
   "需求",
@@ -41,7 +43,7 @@ const validations = {
   2: (store: StoreState) => !!store.startDate && !!store.endDate && store.days > 0,
   3: (store: StoreState) => store.peopleCount >= 1,
   4: (store: StoreState) => store.tripType.length > 0,
-}
+};
 
 function isStepValid(step: number, store: StoreState): boolean {
   if (!(step in validations)) return true;
@@ -53,9 +55,10 @@ const stepComponents = {
   2: StepDates,
   3: StepPeople,
   4: StepTripType,
-  5: StepBudget,
-  6: StepStyles,
-  7: StepRequirements,
+  5: StepTransport,
+  6: StepBudget,
+  7: StepStyles,
+  8: StepRequirements,
 };
 
 const StepContent = ({ currentStep }: { currentStep: number }) => {
@@ -116,7 +119,6 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Header */}
       <div className="flex items-center justify-between px-6 pt-6 pb-2">
         <span className="font-brand text-2xl text-coral">旅路</span>
         <p className="text-sm text-muted">
@@ -131,7 +133,6 @@ export default function OnboardingPage() {
         completedSteps={completedSteps}
       />
 
-      {/* Step label */}
       <div className="flex gap-2 px-6 pt-3 pb-1">
         {STEP_LABELS.map((label, i) => (
           <span
@@ -147,12 +148,10 @@ export default function OnboardingPage() {
         ))}
       </div>
 
-      {/* Step content */}
       <div className="flex-1 overflow-y-auto px-6 pt-4 pb-4">
         <StepContent currentStep={currentStep} />
       </div>
 
-      {/* Navigation */}
       <div className="px-6 pb-10 pt-2 flex flex-col gap-3">
         {isOptional && (
           <RippleButton

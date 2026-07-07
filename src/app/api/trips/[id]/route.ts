@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getTrip, patchTrip, deleteTrip } from "@/lib/services/trip.service";
 import { z, ZodError } from "zod";
 
+import { TransportModeSchema } from "@/lib/schemas/trip.schema";
+
 const PatchBodySchema = z.object({
   client_version: z.number().int(),
   client_modified_at: z.string().datetime(),
@@ -21,6 +23,8 @@ const PatchBodySchema = z.object({
           sort_order: z.number().int().positive(),
           lat: z.number(),
           lng: z.number(),
+          travel_from_mode: TransportModeSchema.nullable(),
+          travel_from_minutes: z.number().int().nonnegative().nullable(),
         })
       ),
     })
@@ -82,6 +86,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         sortOrder: e.sort_order,
         lat: e.lat,
         lng: e.lng,
+        travelFromMode: e.travel_from_mode,
+        travelFromMinutes: e.travel_from_minutes,
       })),
     }))
   );

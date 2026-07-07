@@ -15,12 +15,29 @@ export const validTripEvent = {
   sort_order: 1,
   lat: 35.7148,
   lng: 139.7967,
+  travel_from_mode: null,
+  travel_from_minutes: null,
+};
+
+export const validTripEvent2 = {
+  id: VALID_EVENT_ID_2,
+  title: "晴空塔",
+  location: "東京都墨田區押上1-1-2",
+  description: "東京晴空塔",
+  category: "景點" as const,
+  event_time: "11:00",
+  duration_minutes: 90,
+  sort_order: 2,
+  lat: 35.7101,
+  lng: 139.8107,
+  travel_from_mode: "大眾運輸" as const,
+  travel_from_minutes: 20,
 };
 
 export const validTripDay = {
   day: 1,
   date: "2026-04-01",
-  events: [validTripEvent],
+  events: [validTripEvent, validTripEvent2],
 };
 
 export const validTripResponse = {
@@ -54,4 +71,21 @@ export const uiTripEvent = {
   sortOrder: 1,
   lat: 35.7148,
   lng: 139.7967,
+  travelFromMode: null,
+  travelFromMinutes: null,
+};
+
+export const uiTripEvent2 = {
+  id: VALID_EVENT_ID_2,
+  title: "晴空塔",
+  location: "東京都墨田區押上1-1-2",
+  description: "東京晴空塔",
+  category: "景點",
+  eventTime: "11:00",
+  durationMinutes: 90,
+  sortOrder: 2,
+  lat: 35.7101,
+  lng: 139.8107,
+  travelFromMode: "大眾運輸" as const,
+  travelFromMinutes: 20,
 };

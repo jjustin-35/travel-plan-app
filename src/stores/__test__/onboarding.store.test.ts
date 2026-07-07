@@ -21,7 +21,7 @@ describe("useOnboardingStore", () => {
     prevStep();
     expect(useOnboardingStore.getState().currentStep).toBe(1);
     setStep(99);
-    expect(useOnboardingStore.getState().currentStep).toBe(7);
+    expect(useOnboardingStore.getState().currentStep).toBe(8);
     setStep(0);
     expect(useOnboardingStore.getState().currentStep).toBe(1);
   });
@@ -51,7 +51,18 @@ describe("useOnboardingStore", () => {
     expect(input.days).toBe(5);
     expect(input.budgetRange).toBeUndefined();
     expect(input.preferredStyles).toBeUndefined();
+    expect(input.preferredTransportModes).toBeUndefined();
     expect(input.specialRequirements).toBeUndefined();
+  });
+
+  it("toggles preferred transport modes", () => {
+    const { toggleTransportMode } = useOnboardingStore.getState();
+    toggleTransportMode("大眾運輸");
+    expect(useOnboardingStore.getState().preferredTransportModes).toEqual([
+      "大眾運輸",
+    ]);
+    toggleTransportMode("大眾運輸");
+    expect(useOnboardingStore.getState().preferredTransportModes).toEqual([]);
   });
 
   it("includes optional fields in TripInput when set", () => {
@@ -60,11 +71,13 @@ describe("useOnboardingStore", () => {
     useOnboardingStore.getState().setTripType("自由行");
     useOnboardingStore.getState().setBudgetRange("中等");
     useOnboardingStore.getState().toggleStyle("美食");
+    useOnboardingStore.getState().toggleTransportMode("步行");
     useOnboardingStore.getState().setSpecialRequirements("素食");
 
     const input = useOnboardingStore.getState().toTripInput();
     expect(input.budgetRange).toBe("中等");
     expect(input.preferredStyles).toEqual(["美食"]);
+    expect(input.preferredTransportModes).toEqual(["步行"]);
     expect(input.specialRequirements).toBe("素食");
   });
 

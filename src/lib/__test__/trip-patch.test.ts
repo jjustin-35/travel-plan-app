@@ -29,6 +29,8 @@ describe("buildTripPatchBody", () => {
               sort_order: uiTripEvent.sortOrder,
               lat: uiTripEvent.lat,
               lng: uiTripEvent.lng,
+              travel_from_mode: uiTripEvent.travelFromMode,
+              travel_from_minutes: uiTripEvent.travelFromMinutes,
             },
           ],
         },

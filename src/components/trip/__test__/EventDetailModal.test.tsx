@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EventDetailModal } from "@/components/trip/EventDetailModal";
-import { uiTripEvent } from "@/__test__/fixtures";
+import { uiTripEvent, uiTripEvent2 } from "@/__test__/fixtures";
 
 describe("EventDetailModal", () => {
   it("renders event details", () => {
@@ -40,6 +40,21 @@ describe("EventDetailModal", () => {
 
     await user.click(screen.getByText("刪除"));
     expect(onDelete).toHaveBeenCalled();
+  });
+
+  it("shows travel leg when sortOrder > 1", () => {
+    render(
+      <EventDetailModal
+        event={uiTripEvent2}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("如何抵達")).toBeInTheDocument();
+    expect(screen.getByText(/大眾運輸/)).toBeInTheDocument();
+    expect(screen.getByText(/約 20 分鐘/)).toBeInTheDocument();
   });
 
   it("calls onClose when backdrop clicked", async () => {

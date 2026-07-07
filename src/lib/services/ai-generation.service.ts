@@ -7,6 +7,7 @@ import {
   AlternativeEventsSchema,
   TripEvent,
 } from "@/lib/schemas/trip.schema";
+import { buildTripGenerationPrompt } from "@/lib/ai/trip-generation-prompt";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
@@ -35,65 +36,6 @@ export class AIValidationError extends Error {
   }
 }
 
-const BASE_PROMPT_TEMPLATE = `You are an expert travel planner specializing in creating detailed, personalized itineraries. Your goal is to design a realistic, enjoyable travel schedule based on the traveler's preferences.
-
-## Traveler Information
-- Destination: {{destination}}
-- Duration: {{days}} days {{nights}} nights
-- Departure date: {{start_date}}
-- Return date: {{end_date}}
-- Number of travelers: {{people_count}}
-- Trip type: {{trip_type}}
-- Budget range: {{budget_range}}
-- Preferred styles: {{preferred_styles}}
-- Special requirements: {{special_requirements}}
-
-## Task
-Generate a complete day-by-day travel itinerary in JSON format. The itinerary should feel natural and well-paced, like a plan crafted by a knowledgeable local guide.
-
-## Schedule Density Guidelines
-- Generate between 3 to 8 events per day
-- Fewer events (3–4) for relaxation trips, family trips with elderly or young children
-- More events (6–8) for short trips, city tours, solo travelers, friend groups
-- Always include realistic travel time between locations
-- Include at least one meal event per day
-
-## Output Format
-Respond ONLY with a valid JSON object. Do not include any explanation, markdown, or text outside the JSON.
-
-{
-  "trip": {
-    "title": "string",
-    "days": [
-      {
-        "day": 1,
-        "date": "YYYY-MM-DD",
-        "events": [
-          {
-            "id": "uuid-v4",
-            "title": "string",
-            "location": "string",
-            "description": "string",
-            "category": "景點 | 餐廳 | 咖啡廳 | 交通 | 住宿 | 購物 | 其他",
-            "event_time": "HH:MM",
-            "duration_minutes": 90,
-            "sort_order": 1,
-            "lat": 35.7148,
-            "lng": 139.7967
-          }
-        ]
-      }
-    ]
-  }
-}
-
-## Field Rules
-- id: Must be a valid UUID v4. Never reuse IDs.
-- category: Must be exactly one of the listed options.
-- event_time: HH:MM format, chronological order within each day.
-- sort_order: Starts at 1, increments by 1 within each day.
-- lat/lng: Real-world coordinates. Do not fabricate.
-- description, title, location: Must be in Traditional Chinese (繁體中文).`;
 
 const FORMAT_CORRECTION_TEMPLATE = `## Format Correction Required
 Your previous response contained JSON that failed validation. Please fix the issues and return a corrected response.
@@ -123,7 +65,7 @@ Requirements:
 - All 3 alternatives must be the same category: {{category}}
 - Geographically reasonable given surrounding events
 - Each must have a unique UUID v4 as id
-- Keep the same event_time as the original
+- Keep the same event_time, sort_order, travel_from_mode, and travel_from_minutes as the original
 - Keep duration_minutes similar (within ±30 minutes)
 - title, location, description must be in Traditional Chinese (繁體中文)
 - Do not suggest the same place as the original event
@@ -131,22 +73,7 @@ Requirements:
 Respond ONLY with a valid JSON array of exactly 3 event objects using the same schema as a regular event.`;
 
 function buildBasePrompt(input: TripInput): string {
-  return BASE_PROMPT_TEMPLATE.replace("{{destination}}", input.destination)
-    .replace("{{days}}", String(input.days))
-    .replace("{{nights}}", String(input.nights))
-    .replace("{{start_date}}", input.startDate)
-    .replace("{{end_date}}", input.endDate)
-    .replace("{{people_count}}", String(input.peopleCount))
-    .replace("{{trip_type}}", input.tripType)
-    .replace("{{budget_range}}", input.budgetRange ?? "Not specified")
-    .replace(
-      "{{preferred_styles}}",
-      input.preferredStyles?.join(", ") ?? "Not specified"
-    )
-    .replace(
-      "{{special_requirements}}",
-      input.specialRequirements ?? "None"
-    );
+  return buildTripGenerationPrompt(input);
 }
 
 function buildFormatCorrectionContext(

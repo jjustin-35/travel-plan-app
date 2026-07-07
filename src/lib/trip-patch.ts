@@ -1,15 +1,5 @@
-export type TripEventInput = {
-  id: string;
-  title: string;
-  location: string;
-  description: string;
-  category: string;
-  eventTime: string;
-  durationMinutes: number;
-  sortOrder: number;
-  lat: number;
-  lng: number;
-};
+import type { TripEvent } from "@/lib/schemas/trip.schema";
+import { toApiTravelFields } from "@/lib/schemas/trip.schema";
 
 export type TripPatchBody = {
   client_version: number;
@@ -27,11 +17,13 @@ export type TripPatchBody = {
       sort_order: number;
       lat: number;
       lng: number;
+      travel_from_mode: string | null;
+      travel_from_minutes: number | null;
     }>;
   }>;
 };
 
-export function toApiEvent(event: TripEventInput) {
+export function toApiEvent(event: TripEvent) {
   return {
     id: event.id,
     title: event.title,
@@ -43,13 +35,14 @@ export function toApiEvent(event: TripEventInput) {
     sort_order: event.sortOrder,
     lat: event.lat,
     lng: event.lng,
+    ...toApiTravelFields(event),
   };
 }
 
 export function buildTripPatchBody(
   clientVersion: number,
   dayNumber: number,
-  events: TripEventInput[],
+  events: TripEvent[],
   clientModifiedAt: string = new Date().toISOString()
 ): TripPatchBody {
   return {

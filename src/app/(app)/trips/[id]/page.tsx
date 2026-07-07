@@ -12,19 +12,7 @@ import { ArrowLeft, RefreshCw, Share2, WifiOff, RefreshCcw } from "lucide-react"
 import { createClient } from "@/lib/supabase/client";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { buildTripPatchBody } from "@/lib/trip-patch";
-
-type TripEvent = {
-  id: string;
-  title: string;
-  location: string;
-  description: string;
-  category: string;
-  eventTime: string;
-  durationMinutes: number;
-  sortOrder: number;
-  lat: number;
-  lng: number;
-};
+import type { TripEvent } from "@/lib/schemas/trip.schema";
 
 type TripDay = {
   id: string;
@@ -194,9 +182,16 @@ export default function TripDetailPage() {
 
       let updatedEvents: TripEvent[];
       if (isNew) {
+        const sortOrder = targetDay.events.length + 1;
+        const isFirst = sortOrder === 1;
         updatedEvents = [
           ...targetDay.events,
-          { ...saved, sortOrder: targetDay.events.length + 1 },
+          {
+            ...saved,
+            sortOrder,
+            travelFromMode: isFirst ? null : saved.travelFromMode,
+            travelFromMinutes: isFirst ? null : saved.travelFromMinutes,
+          },
         ];
       } else {
         updatedEvents = targetDay.events.map((e) =>
@@ -248,6 +243,28 @@ export default function TripDetailPage() {
       </div>
     );
   }
+
+  const addDay =
+    addingForDay !== null
+      ? localDays.find((d) => d.dayNumber === addingForDay)
+      : undefined;
+  const newEventDraft: TripEvent | null =
+    addDay && addingForDay !== null
+      ? {
+          id: crypto.randomUUID(),
+          title: "",
+          location: "",
+          description: "",
+          category: "景點",
+          eventTime: "09:00",
+          durationMinutes: 90,
+          sortOrder: addDay.events.length + 1,
+          lat: 0,
+          lng: 0,
+          travelFromMode: addDay.events.length === 0 ? null : "步行",
+          travelFromMinutes: addDay.events.length === 0 ? null : 15,
+        }
+      : null;
 
   return (
     <div className="flex flex-col h-screen bg-cream">
@@ -335,7 +352,7 @@ export default function TripDetailPage() {
       {/* Edit / Create Event Modal */}
       {(editingEvent !== null || addingForDay !== null) && (
         <EditEventModal
-          event={editingEvent}
+          event={editingEvent ?? newEventDraft}
           isNew={addingForDay !== null}
           onSave={handleSaveEvent}
           onClose={() => {

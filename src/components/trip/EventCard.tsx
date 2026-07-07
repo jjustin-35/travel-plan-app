@@ -11,6 +11,7 @@ import {
   Clock,
   type LucideIcon,
 } from "lucide-react";
+import type { TripEvent } from "@/lib/schemas/trip.schema";
 
 type CategoryMeta = { Icon: LucideIcon; color: string; bg: string };
 
@@ -22,19 +23,6 @@ const CATEGORY_CONFIG: Record<string, CategoryMeta> = {
   住宿: { Icon: Bed, color: "#A0785A", bg: "#F8EEE4" },
   購物: { Icon: ShoppingBag, color: "#C77B5A", bg: "#FCEDE6" },
   其他: { Icon: Sparkles, color: "#C4A060", bg: "#FFF9EC" },
-};
-
-type TripEvent = {
-  id: string;
-  title: string;
-  location: string;
-  description: string;
-  category: string;
-  eventTime: string;
-  durationMinutes: number;
-  sortOrder: number;
-  lat: number;
-  lng: number;
 };
 
 type EventCardProps = {

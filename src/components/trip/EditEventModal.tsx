@@ -16,19 +16,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { RippleButton } from "@/components/ui/RippleButton";
+import {
+  TransportModeSchema,
+  type TripEvent,
+  type TransportMode,
+} from "@/lib/schemas/trip.schema";
 
-type TripEvent = {
-  id: string;
-  title: string;
-  location: string;
-  description: string;
-  category: string;
-  eventTime: string;
-  durationMinutes: number;
-  sortOrder: number;
-  lat: number;
-  lng: number;
-};
+const TRANSPORT_MODES = TransportModeSchema.options;
 
 type EditEventModalProps = {
   event: TripEvent | null;
@@ -61,6 +55,8 @@ export function EditEventModal({ event, isNew = false, onSave, onClose }: EditEv
     sortOrder: event?.sortOrder ?? 1,
     lat: event?.lat ?? 0,
     lng: event?.lng ?? 0,
+    travelFromMode: event?.travelFromMode ?? null,
+    travelFromMinutes: event?.travelFromMinutes ?? null,
   });
 
   useEffect(() => {
@@ -71,7 +67,13 @@ export function EditEventModal({ event, isNew = false, onSave, onClose }: EditEv
   const set = <K extends keyof TripEvent>(key: K, value: TripEvent[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const isValid = form.title.trim() && form.location.trim() && form.eventTime;
+  const showTravelFields = form.sortOrder > 1;
+  const isValid =
+    form.title.trim() &&
+    form.location.trim() &&
+    form.eventTime &&
+    (!showTravelFields ||
+      (form.travelFromMode !== null && form.travelFromMinutes !== null));
 
   const inputClass =
     "w-full bg-input-background border border-border rounded-xl px-3 py-2.5 text-sm text-charcoal focus:outline-none focus:ring-2 focus:ring-coral/30 focus:border-coral";
@@ -218,6 +220,48 @@ export function EditEventModal({ event, isNew = false, onSave, onClose }: EditEv
             />
           </div>
 
+          {showTravelFields && (
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="text-xs font-semibold text-muted mb-1.5 block">
+                  交通方式
+                </label>
+                <select
+                  value={form.travelFromMode ?? ""}
+                  onChange={(e) =>
+                    set("travelFromMode", e.target.value as TransportMode)
+                  }
+                  className={inputClass}
+                >
+                  {TRANSPORT_MODES.map((mode) => (
+                    <option key={mode} value={mode}>
+                      {mode}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="text-xs font-semibold text-muted mb-1.5 block">
+                  交通時間（分鐘）
+                </label>
+                <input
+                  type="number"
+                  value={form.travelFromMinutes ?? ""}
+                  min={0}
+                  max={300}
+                  step={5}
+                  onChange={(e) =>
+                    set(
+                      "travelFromMinutes",
+                      e.target.value === "" ? null : parseInt(e.target.value, 10)
+                    )
+                  }
+                  className={inputClass}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex gap-3 pt-2">
             <button
@@ -227,7 +271,17 @@ export function EditEventModal({ event, isNew = false, onSave, onClose }: EditEv
               取消
             </button>
             <RippleButton
-              onClick={() => isValid && onSave(form)}
+              onClick={() => {
+                if (!isValid) return;
+                const payload: TripEvent = showTravelFields
+                  ? form
+                  : {
+                      ...form,
+                      travelFromMode: null,
+                      travelFromMinutes: null,
+                    };
+                onSave(payload);
+              }}
               disabled={!isValid}
               className="flex-1 py-3 rounded-2xl bg-coral text-white text-sm font-bold disabled:opacity-40 hover:bg-wood transition-colors"
             >

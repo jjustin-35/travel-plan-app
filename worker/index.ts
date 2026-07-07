@@ -9,6 +9,7 @@ import { ZodError } from "zod";
 import { TripResponseSchema } from "../src/lib/schemas/trip.schema";
 import type { TripGenerationJobData } from "../src/lib/queue/queue";
 import { buildCacheKey } from "../src/lib/cache-key";
+import { buildTripGenerationPrompt } from "../src/lib/ai/trip-generation-prompt";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
@@ -26,58 +27,8 @@ const redis = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
 
 type JobData = TripGenerationJobData;
 
-const BASE_PROMPT_TEMPLATE = `You are an expert travel planner. Generate a complete day-by-day travel itinerary in JSON format.
-
-Traveler Information:
-- Destination: {{destination}}
-- Duration: {{days}} days {{nights}} nights ({{start_date}} to {{end_date}})
-- Travelers: {{people_count}} people
-- Trip type: {{trip_type}}
-- Budget: {{budget_range}}
-- Preferred styles: {{preferred_styles}}
-- Special requirements: {{special_requirements}}
-
-Generate 3-8 events per day. Include meals. All text in Traditional Chinese (繁體中文).
-
-Respond ONLY with valid JSON:
-{
-  "trip": {
-    "title": "string",
-    "days": [
-      {
-        "day": 1,
-        "date": "YYYY-MM-DD",
-        "events": [
-          {
-            "id": "uuid-v4",
-            "title": "string",
-            "location": "string",
-            "description": "string (繁體中文)",
-            "category": "景點 | 餐廳 | 咖啡廳 | 交通 | 住宿 | 購物 | 其他",
-            "event_time": "HH:MM",
-            "duration_minutes": 90,
-            "sort_order": 1,
-            "lat": 0.0,
-            "lng": 0.0
-          }
-        ]
-      }
-    ]
-  }
-}`;
-
 async function generateTrip(input: JobData["input"]) {
-  const prompt = BASE_PROMPT_TEMPLATE
-    .replace("{{destination}}", input.destination)
-    .replace("{{days}}", String(input.days))
-    .replace("{{nights}}", String(input.nights))
-    .replace("{{start_date}}", input.startDate)
-    .replace("{{end_date}}", input.endDate)
-    .replace("{{people_count}}", String(input.peopleCount))
-    .replace("{{trip_type}}", input.tripType)
-    .replace("{{budget_range}}", input.budgetRange ?? "Not specified")
-    .replace("{{preferred_styles}}", input.preferredStyles?.join(", ") ?? "Not specified")
-    .replace("{{special_requirements}}", input.specialRequirements ?? "None");
+  const prompt = buildTripGenerationPrompt(input);
 
   const MAX_RETRIES = 2;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -104,7 +55,33 @@ async function generateTrip(input: JobData["input"]) {
   throw new Error("Failed to generate valid trip");
 }
 
-async function saveTripResult(tripId: string, aiResult: { trip: { title: string; days: Array<{ day: number; date: string; events: Array<{ id: string; title: string; location: string; description: string; category: string; event_time: string; duration_minutes: number; sort_order: number; lat: number; lng: number }> }> } }) {
+async function saveTripResult(
+  tripId: string,
+  input: JobData["input"],
+  aiResult: {
+    trip: {
+      title: string;
+      days: Array<{
+        day: number;
+        date: string;
+        events: Array<{
+          id: string;
+          title: string;
+          location: string;
+          description: string;
+          category: string;
+          event_time: string;
+          duration_minutes: number;
+          sort_order: number;
+          lat: number;
+          lng: number;
+          travel_from_mode: string | null;
+          travel_from_minutes: number | null;
+        }>;
+      }>;
+    };
+  }
+) {
   await prisma.$transaction(async (tx) => {
     await tx.tripDay.deleteMany({ where: { tripId } });
     await tx.trip.update({
@@ -112,6 +89,7 @@ async function saveTripResult(tripId: string, aiResult: { trip: { title: string;
       data: {
         title: aiResult.trip.title,
         status: "ready",
+        preferredTransportModes: input.preferredTransportModes ?? [],
         version: { increment: 1 },
       },
     });
@@ -137,6 +115,8 @@ async function saveTripResult(tripId: string, aiResult: { trip: { title: string;
           sortOrder: e.sort_order,
           lat: e.lat,
           lng: e.lng,
+          travelFromMode: e.travel_from_mode,
+          travelFromMinutes: e.travel_from_minutes,
         })),
       });
     }
@@ -156,7 +136,7 @@ const worker = new Worker<JobData>(
     if (cached) {
       console.log(`[Worker] Cache hit for trip ${tripId}`);
       const aiResult = TripResponseSchema.parse(JSON.parse(cached));
-      await saveTripResult(tripId, aiResult);
+      await saveTripResult(tripId, input, aiResult);
       return;
     }
 
@@ -167,7 +147,7 @@ const worker = new Worker<JobData>(
     await redis.set(cacheKey, JSON.stringify(aiResult), "EX", 600);
 
     // Save to DB (Supabase Realtime will auto-push to frontend)
-    await saveTripResult(tripId, aiResult);
+    await saveTripResult(tripId, input, aiResult);
 
     // Update AI job status
     await prisma.aIGenerationJob.updateMany({

@@ -1,17 +1,5 @@
 import { create } from "zustand";
-
-export type TripEvent = {
-  id: string;
-  title: string;
-  location: string;
-  description: string;
-  category: string;
-  eventTime: string;
-  durationMinutes: number;
-  sortOrder: number;
-  lat: number;
-  lng: number;
-};
+import type { TripEvent } from "@/lib/schemas/trip.schema";
 
 type AlternativesState = {
   eventId: string | null;

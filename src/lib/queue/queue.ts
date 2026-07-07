@@ -1,5 +1,6 @@
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
+import { TransportMode } from "../schemas/trip.schema";
 
 let _connection: IORedis | null = null;
 
@@ -36,6 +37,7 @@ export type TripGenerationJobData = {
     tripType: string;
     budgetRange?: string;
     preferredStyles?: string[];
+    preferredTransportModes?: TransportMode[];
     specialRequirements?: string;
   };
   idempotencyKey: string;

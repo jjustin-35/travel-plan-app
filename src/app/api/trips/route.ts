@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
           startDate: new Date(input.startDate),
           endDate: new Date(input.endDate),
           status: "generating",
+          preferredTransportModes: input.preferredTransportModes ?? [],
         },
       });
 

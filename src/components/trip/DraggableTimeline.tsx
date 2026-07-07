@@ -22,8 +22,10 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { EventCard } from "@/components/trip/EventCard";
 import { EventDetailModal } from "@/components/trip/EventDetailModal";
+import { TravelLegConnector } from "@/components/trip/TravelLegConnector";
 import { AlternativesPanel } from "@/components/trip/AlternativesPanel";
-import { useAlternativesStore, TripEvent } from "@/stores/alternatives.store";
+import { useAlternativesStore } from "@/stores/alternatives.store";
+import type { TripEvent } from "@/lib/schemas/trip.schema";
 
 const LONG_PRESS_MS = 450;
 
@@ -113,7 +115,12 @@ export function DraggableTimeline({
         const oldIndex = events.findIndex((ev) => ev.id === active.id);
         const newIndex = events.findIndex((ev) => ev.id === over.id);
         const reordered = arrayMove(events, oldIndex, newIndex).map(
-          (ev, idx) => ({ ...ev, sortOrder: idx + 1 })
+          (ev, idx) => ({
+            ...ev,
+            sortOrder: idx + 1,
+            travelFromMode: idx === 0 ? null : ev.travelFromMode,
+            travelFromMinutes: idx === 0 ? null : ev.travelFromMinutes,
+          })
         );
         onEventsChange(dayId, reordered);
       }
@@ -132,7 +139,12 @@ export function DraggableTimeline({
     (event: TripEvent) => {
       const updated = events
         .filter((e) => e.id !== event.id)
-        .map((e, i) => ({ ...e, sortOrder: i + 1 }));
+        .map((e, i) => ({
+          ...e,
+          sortOrder: i + 1,
+          travelFromMode: i === 0 ? null : e.travelFromMode,
+          travelFromMinutes: i === 0 ? null : e.travelFromMinutes,
+        }));
       onEventsChange(dayId, updated);
       setDetailEvent(null);
     },
@@ -195,19 +207,22 @@ export function DraggableTimeline({
           >
             <div className="flex flex-col gap-3">
               {events.map((event) => (
-                <div key={event.id} className="flex items-start gap-2">
-                  <div className="w-9 flex flex-col items-center shrink-0 pt-5 z-10">
-                    <div className="flex h-4 w-4 items-center justify-center rounded-full border-2 border-coral bg-card">
-                      <div className="h-1.5 w-1.5 rounded-full bg-coral" />
+                <div key={event.id} className="flex flex-col">
+                  <TravelLegConnector event={event} />
+                  <div className="flex items-start gap-2">
+                    <div className="w-9 flex flex-col items-center shrink-0 pt-5 z-10">
+                      <div className="flex h-4 w-4 items-center justify-center rounded-full border-2 border-coral bg-card">
+                        <div className="h-1.5 w-1.5 rounded-full bg-coral" />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex-1 min-w-0">
-                    <SortableEvent
-                      event={event}
-                      dragJustEnded={dragJustEnded}
-                      onTap={setDetailEvent}
-                    />
+                    <div className="flex-1 min-w-0">
+                      <SortableEvent
+                        event={event}
+                        dragJustEnded={dragJustEnded}
+                        onTap={setDetailEvent}
+                      />
+                    </div>
                   </div>
                 </div>
               ))}

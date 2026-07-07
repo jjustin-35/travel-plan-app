@@ -29,6 +29,13 @@ export function SummaryPage() {
           emoji: "🎯",
         }
       : null,
+    store.preferredTransportModes.length > 0
+      ? {
+          label: "交通偏好",
+          value: store.preferredTransportModes.join("、"),
+          emoji: "🚇",
+        }
+      : null,
     store.specialRequirements
       ? {
           label: "特殊需求",

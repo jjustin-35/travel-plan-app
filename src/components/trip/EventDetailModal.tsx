@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   X,
@@ -17,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { RippleButton } from "@/components/ui/RippleButton";
+import type { TripEvent } from "@/lib/schemas/trip.schema";
 
 type CategoryMeta = { Icon: LucideIcon; color: string; bg: string };
 
@@ -28,19 +28,6 @@ const CATEGORY_CONFIG: Record<string, CategoryMeta> = {
   住宿: { Icon: Bed, color: "#A0785A", bg: "#F8EEE4" },
   購物: { Icon: ShoppingBag, color: "#C77B5A", bg: "#FCEDE6" },
   其他: { Icon: Sparkles, color: "#C4A060", bg: "#FFF9EC" },
-};
-
-type TripEvent = {
-  id: string;
-  title: string;
-  location: string;
-  description: string;
-  category: string;
-  eventTime: string;
-  durationMinutes: number;
-  sortOrder: number;
-  lat: number;
-  lng: number;
 };
 
 type EventDetailModalProps = {
@@ -151,6 +138,24 @@ export function EventDetailModal({
                 </div>
               </div>
             ) : null}
+
+            {event.sortOrder > 1 &&
+              event.travelFromMode &&
+              event.travelFromMinutes !== null && (
+              <div className="flex items-start gap-3">
+                <Train size={16} className="text-muted shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-muted">如何抵達</p>
+                  <p className="text-sm text-charcoal mt-0.5">
+                    {event.travelFromMode}
+                    <span className="text-muted">
+                      {" "}
+                      · 約 {event.travelFromMinutes} 分鐘
+                    </span>
+                  </p>
+                </div>
+              </div>
+            )}
 
             {(event.lat !== 0 || event.lng !== 0) && (
               <div className="flex items-start gap-3">

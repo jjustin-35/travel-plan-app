@@ -31,6 +31,7 @@ model Trip {
   endDate     DateTime @map("end_date") @db.Date
   status      String   @default("generating") // generating | ready | failed
   version     Int      @default(1)
+  preferredTransportModes String[] @default([]) @map("preferred_transport_modes")
   updatedAt   DateTime @updatedAt @map("updated_at")
   createdAt   DateTime @default(now()) @map("created_at")
 
@@ -67,6 +68,8 @@ model TripEvent {
   sortOrder       Int      @map("sort_order")
   lat             Float
   lng             Float
+  travelFromMode    String? @map("travel_from_mode")
+  travelFromMinutes Int?    @map("travel_from_minutes")
   createdAt       DateTime @default(now()) @map("created_at")
 
   tripDay TripDay @relation(fields: [tripDayId], references: [id], onDelete: Cascade)

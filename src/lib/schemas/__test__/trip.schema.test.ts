@@ -13,6 +13,7 @@ import {
   validTripInput,
   VALID_EVENT_ID_2,
   VALID_EVENT_ID_3,
+  validTripEvent2,
 } from "@/__test__/fixtures";
 
 describe("TripEventSchema", () => {
@@ -32,10 +33,21 @@ describe("TripEventSchema", () => {
     ).toThrow();
   });
 
-  it("rejects coordinates out of range", () => {
+  it("rejects travel fields on first event of day", () => {
     expect(() =>
-      TripEventSchema.parse({ ...validTripEvent, lat: 91 })
+      TripEventSchema.parse({
+        ...validTripEvent,
+        travel_from_mode: "步行",
+        travel_from_minutes: 10,
+      })
     ).toThrow();
+  });
+
+  it("requires travel fields when sort_order > 1", () => {
+    expect(() =>
+      TripEventSchema.parse({ ...validTripEvent2, travel_from_mode: null })
+    ).toThrow();
+    expect(TripEventSchema.parse(validTripEvent2)).toEqual(validTripEvent2);
   });
 });
 
