@@ -16,6 +16,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const trip = await getTripById(id, user.id);
   if (!trip) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (trip.status === "generating") {
+    return NextResponse.json(
+      { error: "Trip generation is already in progress" },
+      { status: 409 }
+    );
+  }
 
   let body: { notes?: string; input?: unknown } = {};
   try {
