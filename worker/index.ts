@@ -188,6 +188,13 @@ const worker = new Worker<JobData>(
 worker.on("failed", async (job, err) => {
   console.error(`[Worker] Job ${job?.id} failed:`, err.message);
   if (job?.data.tripId) {
+    if (!job.finishedOn) {
+      console.log(
+        `[Worker] Job ${job.id} will retry; keeping trip ${job.data.tripId} in generating status`
+      );
+      return;
+    }
+
     await prisma.trip.update({
       where: { id: job.data.tripId },
       data: { status: "failed" },
