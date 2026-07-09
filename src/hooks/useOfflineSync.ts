@@ -51,6 +51,7 @@ type UseOfflineSyncReturn = {
   isOnline: boolean;
   hasPendingSync: boolean;
   saveEventsOffline: (dayId: string, events: TripEvent[]) => Promise<void>;
+  markEventsSynced: (dayId: string, version: number) => Promise<void>;
 };
 
 export function useOfflineSync({
@@ -106,34 +107,37 @@ export function useOfflineSync({
           return;
         }
 
-        const cached = await getCachedTrip(tripId);
+        let cached = await getCachedTrip(tripId);
+        if (!cached) {
+          setHasPendingSync(true);
+          return;
+        }
 
-        await Promise.all(
-          mine.map(async (sync) => {
-            try {
-              const day = cached?.days.find((d) => d.id === sync.dayId);
-              if (!day) return;
+        let clientVersion = cached.version;
 
-              const res = await fetch(`/api/trips/${sync.tripId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(
-                  buildTripPatchBody(
-                    cached?.version ?? tripVersionRef.current,
-                    day.dayNumber,
-                    sync.events
-                  )
-                ),
-              });
-              if (res.ok) {
-                tripVersionRef.current += 1;
-                await resolveSync(sync.tripId, sync.dayId);
-              }
-            } catch {
-              // Stay queued, will retry next time online
+        for (const sync of mine) {
+          try {
+            const day = cached?.days.find((d) => d.id === sync.dayId);
+            if (!day) continue;
+
+            const res = await fetch(`/api/trips/${sync.tripId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(
+                buildTripPatchBody(clientVersion, day.dayNumber, sync.events)
+              ),
+            });
+            if (res.ok) {
+              clientVersion += 1;
+              tripVersionRef.current = clientVersion;
+              await resolveSync(sync.tripId, sync.dayId);
+              cached = { ...cached, version: clientVersion };
+              await cacheTrip(cached);
             }
-          })
-        );
+          } catch {
+            // Stay queued, will retry next time online
+          }
+        }
 
         const remaining = await getAllPendingSyncs();
         setHasPendingSync(remaining.some((p) => p.tripId === tripId));
@@ -160,7 +164,20 @@ export function useOfflineSync({
     setHasPendingSync(true);
   };
 
-  return { isOnline, hasPendingSync, saveEventsOffline };
+  const markEventsSynced = async (dayId: string, version: number) => {
+    await resolveSync(tripId, dayId);
+    tripVersionRef.current = version;
+
+    const cached = await getCachedTrip(tripId);
+    if (cached) {
+      await cacheTrip({ ...cached, version });
+    }
+
+    const remaining = await getAllPendingSyncs();
+    setHasPendingSync(remaining.some((p) => p.tripId === tripId));
+  };
+
+  return { isOnline, hasPendingSync, saveEventsOffline, markEventsSynced };
 }
 
 // Standalone hook for loading cached trips when offline

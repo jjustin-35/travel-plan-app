@@ -32,6 +32,12 @@ const sampleTrip = {
       date: "2026-04-01",
       events: [uiTripEvent],
     },
+    {
+      id: "day-2",
+      dayNumber: 2,
+      date: "2026-04-02",
+      events: [{ ...uiTripEvent, id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8" }],
+    },
   ],
 };
 
@@ -91,7 +97,7 @@ describe("useOfflineSync", () => {
     expect(result.current.hasPendingSync).toBe(true);
   });
 
-  it("flushes pending syncs when online", async () => {
+  it("flushes pending syncs sequentially with incremented versions", async () => {
     mockGetAllPendingSyncs
       .mockResolvedValueOnce([
         {
@@ -99,6 +105,13 @@ describe("useOfflineSync", () => {
           tripId: "trip-1",
           dayId: "day-1",
           events: [uiTripEvent],
+          updatedAt: Date.now(),
+        },
+        {
+          id: "trip-1__day-2",
+          tripId: "trip-1",
+          dayId: "day-2",
+          events: [{ ...uiTripEvent, id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8" }],
           updatedAt: Date.now(),
         },
       ])
@@ -111,14 +124,44 @@ describe("useOfflineSync", () => {
     );
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith(
-        "/api/trips/trip-1",
-        expect.objectContaining({
-          method: "PATCH",
-          body: expect.stringContaining('"client_version":1'),
-        })
-      );
-      expect(mockResolveSync).toHaveBeenCalledWith("trip-1", "day-1");
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    expect(fetch).toHaveBeenNthCalledWith(
+      1,
+      "/api/trips/trip-1",
+      expect.objectContaining({
+        method: "PATCH",
+        body: expect.stringContaining('"client_version":1'),
+      })
+    );
+    expect(fetch).toHaveBeenNthCalledWith(
+      2,
+      "/api/trips/trip-1",
+      expect.objectContaining({
+        method: "PATCH",
+        body: expect.stringContaining('"client_version":2'),
+      })
+    );
+    expect(mockResolveSync).toHaveBeenCalledWith("trip-1", "day-1");
+    expect(mockResolveSync).toHaveBeenCalledWith("trip-1", "day-2");
+  });
+
+  it("marks online saves as synced and refreshes cached version", async () => {
+    const { result } = renderHook(() =>
+      useOfflineSync({ tripId: "trip-1", trip: sampleTrip })
+    );
+
+    await act(async () => {
+      await result.current.markEventsSynced("day-1", 2);
+    });
+
+    expect(mockResolveSync).toHaveBeenCalledWith("trip-1", "day-1");
+    expect(mockCacheTrip).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "trip-1", version: 2 })
+    );
+    await waitFor(() => {
+      expect(result.current.hasPendingSync).toBe(false);
     });
   });
 });

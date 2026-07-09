@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, RefreshCcw, RefreshCw, Share2, WifiOff } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TimelineView } from "@/components/trip/TimelineView";
@@ -8,7 +9,6 @@ import { LoadingAnimation } from "@/components/trip/LoadingAnimation";
 import { EditEventModal } from "@/components/trip/EditEventModal";
 import { RippleButton } from "@/components/ui/RippleButton";
 import { AddFab } from "@/components/ui/AddFab";
-import { ArrowLeft, RefreshCw, Share2, WifiOff, RefreshCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { buildTripPatchBody } from "@/lib/trip-patch";
@@ -75,6 +75,7 @@ export default function TripDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const debounceTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const pendingOfflineWrites = useRef<Map<string, Promise<void>>>(new Map());
   const localDaysRef = useRef<TripDay[]>([]);
   const tripVersionRef = useRef(1);
 
@@ -100,10 +101,11 @@ export default function TripDetailPage() {
   }, [trip]);
 
   // Offline sync integration
-  const { isOnline, hasPendingSync, saveEventsOffline } = useOfflineSync({
-    tripId: id,
-    trip: trip ?? null,
-  });
+  const { isOnline, hasPendingSync, saveEventsOffline, markEventsSynced } =
+    useOfflineSync({
+      tripId: id,
+      trip: trip ?? null,
+    });
 
   // Supabase Realtime: subscribe to trip status changes
   useEffect(() => {
@@ -140,6 +142,19 @@ export default function TripDetailPage() {
 
         setIsSaving(true);
         try {
+          const pendingOfflineWrite = pendingOfflineWrites.current.get(dayId);
+          if (pendingOfflineWrite) {
+            try {
+              await pendingOfflineWrite;
+            } catch (error) {
+              console.error(error);
+            } finally {
+              if (pendingOfflineWrites.current.get(dayId) === pendingOfflineWrite) {
+                pendingOfflineWrites.current.delete(dayId);
+              }
+            }
+          }
+
           const res = await batchUpdateEvents(
             id,
             tripVersionRef.current,
@@ -147,7 +162,9 @@ export default function TripDetailPage() {
             events
           );
           if (res.ok) {
-            tripVersionRef.current += 1;
+            const nextVersion = tripVersionRef.current + 1;
+            tripVersionRef.current = nextVersion;
+            await markEventsSynced(dayId, nextVersion);
             queryClient.invalidateQueries({ queryKey: ["trip", id] });
           } else {
             console.error("Failed to save trip events", await res.text());
@@ -160,7 +177,7 @@ export default function TripDetailPage() {
       }, 800);
       debounceTimers.current.set(dayId, timer);
     },
-    [id, queryClient]
+    [id, markEventsSynced, queryClient]
   );
 
   const handleEventsChange = useCallback(
@@ -171,7 +188,9 @@ export default function TripDetailPage() {
         return next;
       });
       // Write to IDB immediately, then debounce remote sync
-      saveEventsOffline(dayId, events).catch(console.error);
+      const offlineWrite = saveEventsOffline(dayId, events);
+      pendingOfflineWrites.current.set(dayId, offlineWrite);
+      offlineWrite.catch(console.error);
       scheduleBatchUpdate(dayId, events);
     },
     [scheduleBatchUpdate, saveEventsOffline]
