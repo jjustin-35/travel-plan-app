@@ -9,6 +9,7 @@ import { ZodError } from "zod";
 import { TripResponseSchema } from "../src/lib/schemas/trip.schema";
 import type { TripGenerationJobData } from "../src/lib/queue/queue";
 import { buildCacheKey } from "../src/lib/cache-key";
+import { withFreshTripEventIds } from "../src/lib/trip-event-ids";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
@@ -155,7 +156,9 @@ const worker = new Worker<JobData>(
     const cached = await redis.get(cacheKey);
     if (cached) {
       console.log(`[Worker] Cache hit for trip ${tripId}`);
-      const aiResult = TripResponseSchema.parse(JSON.parse(cached));
+      const aiResult = withFreshTripEventIds(
+        TripResponseSchema.parse(JSON.parse(cached))
+      );
       await saveTripResult(tripId, aiResult);
       return;
     }
