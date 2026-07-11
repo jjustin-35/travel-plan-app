@@ -1,12 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { generateTrip } from "@/lib/services/ai-generation.service";
-import { getTripById, createTripWithDays } from "@/lib/db/trip.repository";
+import { getTripById } from "@/lib/db/trip.repository";
 import { TripInputSchema } from "@/lib/schemas/trip.schema";
 import { prisma } from "@/lib/db/prisma";
-import { ZodError } from "zod";
 
 type RouteParams = { params: Promise<{ id: string }> };
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function toDateInput(date: Date) {
+  return date.toISOString().split("T")[0];
+}
+
+function getTripDurationDays(startDate: Date, endDate: Date) {
+  const start = Date.UTC(
+    startDate.getUTCFullYear(),
+    startDate.getUTCMonth(),
+    startDate.getUTCDate()
+  );
+  const end = Date.UTC(
+    endDate.getUTCFullYear(),
+    endDate.getUTCMonth(),
+    endDate.getUTCDate()
+  );
+  return Math.max(1, Math.floor((end - start) / MS_PER_DAY) + 1);
+}
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
@@ -26,13 +46,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   let input;
   try {
+    const durationDays =
+      trip.days.length > 0
+        ? trip.days.length
+        : getTripDurationDays(trip.startDate, trip.endDate);
+
     input = TripInputSchema.parse(
       body.input ?? {
         destination: trip.destination,
-        startDate: trip.startDate.toISOString().split("T")[0],
-        endDate: trip.endDate.toISOString().split("T")[0],
-        days: trip.days.length,
-        nights: trip.days.length - 1,
+        startDate: toDateInput(trip.startDate),
+        endDate: toDateInput(trip.endDate),
+        days: durationDays,
+        nights: durationDays - 1,
         peopleCount: trip.peopleCount,
         tripType: trip.tripType,
       }
