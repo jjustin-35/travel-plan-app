@@ -124,10 +124,13 @@ export async function updateTripEvents(
     });
 
     const dayMap = new Map(tripDays.map((d) => [d.dayNumber, d.id]));
+    const missingDay = days.find((day) => !dayMap.has(day.dayNumber));
+    if (missingDay) {
+      return { conflict: true, currentVersion: trip.version };
+    }
 
     for (const day of days) {
-      const dayId = dayMap.get(day.dayNumber);
-      if (!dayId) continue;
+      const dayId = dayMap.get(day.dayNumber)!;
 
       await tx.tripEvent.deleteMany({ where: { tripDayId: dayId } });
       await tx.tripEvent.createMany({
