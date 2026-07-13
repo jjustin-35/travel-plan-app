@@ -51,6 +51,21 @@ describe("cache.service", () => {
       });
       expect(key1).not.toBe(key2);
     });
+
+    it("produces different keys when trip duration changes", () => {
+      const key1 = buildCacheKey("user-1", validTripInput);
+      const key2 = buildCacheKey("user-1", {
+        ...validTripInput,
+        days: validTripInput.days + 1,
+      });
+      const key3 = buildCacheKey("user-1", {
+        ...validTripInput,
+        nights: validTripInput.nights + 1,
+      });
+
+      expect(key1).not.toBe(key2);
+      expect(key1).not.toBe(key3);
+    });
   });
 
   describe("getCachedTrip", () => {
