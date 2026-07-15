@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, RefreshCw, Share2, WifiOff, RefreshCcw } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TimelineView } from "@/components/trip/TimelineView";
@@ -8,46 +9,10 @@ import { LoadingAnimation } from "@/components/trip/LoadingAnimation";
 import { EditEventModal } from "@/components/trip/EditEventModal";
 import { RippleButton } from "@/components/ui/RippleButton";
 import { AddFab } from "@/components/ui/AddFab";
-import { ArrowLeft, RefreshCw, Share2, WifiOff, RefreshCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { buildTripPatchBody } from "@/lib/trip-patch";
-
-type TripEvent = {
-  id: string;
-  title: string;
-  location: string;
-  description: string;
-  category: string;
-  eventTime: string;
-  durationMinutes: number;
-  sortOrder: number;
-  lat: number;
-  lng: number;
-};
-
-type TripDay = {
-  id: string;
-  dayNumber: number;
-  date: string;
-  events: TripEvent[];
-};
-
-type Trip = {
-  id: string;
-  title: string;
-  destination: string;
-  status: string;
-  version: number;
-  days: TripDay[];
-};
-
-async function fetchTrip(id: string): Promise<Trip> {
-  const res = await fetch(`/api/trips/${id}`);
-  if (!res.ok) throw new Error("Failed to fetch trip");
-  const data = await res.json();
-  return data.trip;
-}
+import { fetchTrip, type TripDay, type TripEvent } from "@/lib/trip-fetch";
 
 async function batchUpdateEvents(
   tripId: string,
