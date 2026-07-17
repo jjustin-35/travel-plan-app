@@ -107,14 +107,19 @@ export async function updateTripEvents(
   }>
 ) {
   return await prisma.$transaction(async (tx) => {
-    const trip = await tx.trip.findFirst({
-      where: { id: tripId, userId },
-      select: { id: true, version: true },
+    const claimed = await tx.trip.updateMany({
+      where: { id: tripId, userId, version: clientVersion },
+      data: {
+        version: { increment: 1 },
+      },
     });
 
-    if (!trip) throw new Error("Trip not found");
-
-    if (clientVersion !== trip.version) {
+    if (claimed.count === 0) {
+      const trip = await tx.trip.findFirst({
+        where: { id: tripId, userId },
+        select: { id: true, version: true },
+      });
+      if (!trip) throw new Error("Trip not found");
       return { conflict: true, currentVersion: trip.version };
     }
 
@@ -146,13 +151,6 @@ export async function updateTripEvents(
         })),
       });
     }
-
-    await tx.trip.update({
-      where: { id: tripId },
-      data: {
-        version: { increment: 1 },
-      },
-    });
 
     return { conflict: false };
   });

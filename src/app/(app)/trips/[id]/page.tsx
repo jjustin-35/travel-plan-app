@@ -1,37 +1,25 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, RefreshCw, Share2, WifiOff, RefreshCcw } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+
 import { TimelineView } from "@/components/trip/TimelineView";
 import { LoadingAnimation } from "@/components/trip/LoadingAnimation";
 import { EditEventModal } from "@/components/trip/EditEventModal";
 import { RippleButton } from "@/components/ui/RippleButton";
 import { AddFab } from "@/components/ui/AddFab";
-import { ArrowLeft, RefreshCw, Share2, WifiOff, RefreshCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  buildSavedEventsUpdate,
+  type EditableTripDay,
+} from "@/lib/trip-event-save";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
-import { buildTripPatchBody } from "@/lib/trip-patch";
+import { buildTripPatchBody, type TripEventInput } from "@/lib/trip-patch";
 
-type TripEvent = {
-  id: string;
-  title: string;
-  location: string;
-  description: string;
-  category: string;
-  eventTime: string;
-  durationMinutes: number;
-  sortOrder: number;
-  lat: number;
-  lng: number;
-};
-
-type TripDay = {
-  id: string;
-  dayNumber: number;
-  date: string;
-  events: TripEvent[];
-};
+type TripEvent = TripEventInput;
+type TripDay = EditableTripDay;
 
 type Trip = {
   id: string;
@@ -187,28 +175,19 @@ export default function TripDetailPage() {
 
   const handleSaveEvent = useCallback(
     (saved: TripEvent) => {
-      const isNew = addingForDay !== null;
-      const targetDayNumber = isNew ? addingForDay! : activeDay;
-      const targetDay = localDays.find((d) => d.dayNumber === targetDayNumber);
-      if (!targetDay) return;
+      const update = buildSavedEventsUpdate({
+        days: localDays,
+        savedEvent: saved,
+        addingForDay,
+        editingEventId: editingEvent?.id ?? null,
+      });
+      if (!update) return;
 
-      let updatedEvents: TripEvent[];
-      if (isNew) {
-        updatedEvents = [
-          ...targetDay.events,
-          { ...saved, sortOrder: targetDay.events.length + 1 },
-        ];
-      } else {
-        updatedEvents = targetDay.events.map((e) =>
-          e.id === saved.id ? saved : e
-        );
-      }
-
-      handleEventsChange(targetDay.id, updatedEvents);
+      handleEventsChange(update.dayId, update.events);
       setEditingEvent(null);
       setAddingForDay(null);
     },
-    [localDays, addingForDay, activeDay, handleEventsChange]
+    [localDays, addingForDay, editingEvent, handleEventsChange]
   );
 
   if (isLoading || trip?.status === "generating") {
