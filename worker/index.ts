@@ -2,13 +2,22 @@
 import "./load-env";
 
 import { Worker, type ConnectionOptions } from "bullmq";
-import { prisma } from "../src/lib/db/prisma";
 import { GoogleGenAI } from "@google/genai";
 import IORedis from "ioredis";
 import { ZodError } from "zod";
-import { TripResponseSchema } from "../src/lib/schemas/trip.schema";
+
+import { prisma } from "../src/lib/db/prisma";
+import {
+  TripResponseSchema,
+  type TripResponse,
+} from "../src/lib/schemas/trip.schema";
 import type { TripGenerationJobData } from "../src/lib/queue/queue";
 import { buildCacheKey } from "../src/lib/cache-key";
+import {
+  markGenerationJobDone,
+  markGenerationJobFailed,
+  markGenerationJobProcessing,
+} from "../src/lib/worker/job-status";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
@@ -104,7 +113,7 @@ async function generateTrip(input: JobData["input"]) {
   throw new Error("Failed to generate valid trip");
 }
 
-async function saveTripResult(tripId: string, aiResult: { trip: { title: string; days: Array<{ day: number; date: string; events: Array<{ id: string; title: string; location: string; description: string; category: string; event_time: string; duration_minutes: number; sort_order: number; lat: number; lng: number }> }> } }) {
+async function saveTripResult(tripId: string, aiResult: TripResponse) {
   await prisma.$transaction(async (tx) => {
     await tx.tripDay.deleteMany({ where: { tripId } });
     await tx.trip.update({
@@ -146,34 +155,36 @@ async function saveTripResult(tripId: string, aiResult: { trip: { title: string;
 const worker = new Worker<JobData>(
   "trip-generation",
   async (job) => {
-    const { tripId, userId, input } = job.data;
+    const { tripId, userId, input, idempotencyKey } = job.data;
     console.log(`[Worker] Processing job ${job.id} for trip ${tripId}`);
 
+    const shouldProcess = await markGenerationJobProcessing(prisma, idempotencyKey);
+    if (!shouldProcess) {
+      console.log(`[Worker] Skipping job ${job.id}; generation record is no longer processable`);
+      return;
+    }
+
     const cacheKey = buildCacheKey(userId, input);
+    let aiResult: TripResponse;
 
     // Check cache
     const cached = await redis.get(cacheKey);
     if (cached) {
       console.log(`[Worker] Cache hit for trip ${tripId}`);
-      const aiResult = TripResponseSchema.parse(JSON.parse(cached));
-      await saveTripResult(tripId, aiResult);
-      return;
+      aiResult = TripResponseSchema.parse(JSON.parse(cached));
+    } else {
+      // Generate with Gemini
+      aiResult = await generateTrip(input);
+
+      // Cache result
+      await redis.set(cacheKey, JSON.stringify(aiResult), "EX", 600);
     }
-
-    // Generate with Gemini
-    const aiResult = await generateTrip(input);
-
-    // Cache result
-    await redis.set(cacheKey, JSON.stringify(aiResult), "EX", 600);
 
     // Save to DB (Supabase Realtime will auto-push to frontend)
     await saveTripResult(tripId, aiResult);
 
     // Update AI job status
-    await prisma.aIGenerationJob.updateMany({
-      where: { tripId, status: "processing" },
-      data: { status: "done", completedAt: new Date() },
-    });
+    await markGenerationJobDone(prisma, idempotencyKey);
 
     console.log(`[Worker] Completed job ${job.id} for trip ${tripId}`);
   },
@@ -187,15 +198,17 @@ const worker = new Worker<JobData>(
 
 worker.on("failed", async (job, err) => {
   console.error(`[Worker] Job ${job?.id} failed:`, err.message);
-  if (job?.data.tripId) {
-    await prisma.trip.update({
-      where: { id: job.data.tripId },
-      data: { status: "failed" },
-    });
-    await prisma.aIGenerationJob.updateMany({
-      where: { tripId: job.data.tripId, status: "processing" },
-      data: { status: "failed", errorMessage: err.message },
-    });
+  if (job?.data.tripId && job.data.idempotencyKey) {
+    try {
+      await markGenerationJobFailed(
+        prisma,
+        job.data.tripId,
+        job.data.idempotencyKey,
+        err.message
+      );
+    } catch (updateError) {
+      console.error(`[Worker] Failed to persist failure state for job ${job.id}:`, updateError);
+    }
   }
 });
 
