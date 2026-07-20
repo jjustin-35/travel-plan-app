@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TripDetailPage from "@/app/(app)/trips/[id]/page";
@@ -133,12 +133,10 @@ function renderPage() {
 
 describe("TripDetailPage remote saves", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
     mockSaveEventsOffline.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -167,17 +165,13 @@ describe("TripDetailPage remote saves", () => {
 
     await screen.findByTestId("trip-detail");
 
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "update day 1" }));
     await user.click(screen.getByRole("button", { name: "update day 2" }));
 
-    await act(async () => {
-      vi.advanceTimersByTime(800);
-    });
-
     await waitFor(() => {
       expect(patchBodies).toHaveLength(2);
-    });
+    }, { timeout: 2000 });
 
     expect(patchBodies).toMatchObject([
       { client_version: 1, days: [{ day_number: 1 }] },
