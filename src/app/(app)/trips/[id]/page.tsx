@@ -126,7 +126,6 @@ export default function TripDetailPage() {
         localDaysRef.current,
         dirtyDayIdsRef.current
       );
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalDays(days);
       localDaysRef.current = days;
       tripVersionRef.current = trip.version ?? 1;
