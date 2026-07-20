@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, RefreshCw, Share2, WifiOff, RefreshCcw } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TimelineView } from "@/components/trip/TimelineView";
@@ -8,9 +9,9 @@ import { LoadingAnimation } from "@/components/trip/LoadingAnimation";
 import { EditEventModal } from "@/components/trip/EditEventModal";
 import { RippleButton } from "@/components/ui/RippleButton";
 import { AddFab } from "@/components/ui/AddFab";
-import { ArrowLeft, RefreshCw, Share2, WifiOff, RefreshCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { mergeDirtyTripDays, normalizeTripDays } from "@/lib/trip-local-days";
 import { buildTripPatchBody } from "@/lib/trip-patch";
 
 type TripEvent = {
@@ -42,6 +43,15 @@ type Trip = {
   days: TripDay[];
 };
 
+type SaveAttemptResult =
+  | { ok: true }
+  | {
+      ok: false;
+      status: number;
+      message: string;
+      currentVersion?: number;
+    };
+
 async function fetchTrip(id: string): Promise<Trip> {
   const res = await fetch(`/api/trips/${id}`);
   if (!res.ok) throw new Error("Failed to fetch trip");
@@ -54,13 +64,31 @@ async function batchUpdateEvents(
   clientVersion: number,
   dayNumber: number,
   events: TripEvent[]
-) {
+): Promise<SaveAttemptResult> {
   const res = await fetch(`/api/trips/${tripId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(buildTripPatchBody(clientVersion, dayNumber, events)),
   });
-  return res;
+  if (res.ok) return { ok: true };
+
+  const message = await res.text();
+  let currentVersion: number | undefined;
+  try {
+    const parsed = JSON.parse(message) as { currentVersion?: unknown };
+    if (typeof parsed.currentVersion === "number") {
+      currentVersion = parsed.currentVersion;
+    }
+  } catch {
+    // Keep the original response text for logging.
+  }
+
+  return {
+    ok: false,
+    status: res.status,
+    message,
+    currentVersion,
+  };
 }
 
 export default function TripDetailPage() {
@@ -75,7 +103,11 @@ export default function TripDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const debounceTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const dirtyDayIdsRef = useRef<Set<string>>(new Set());
+  const dayRevisionsRef = useRef<Map<string, number>>(new Map());
   const localDaysRef = useRef<TripDay[]>([]);
+  const pendingRemoteSaveCountRef = useRef(0);
+  const remoteSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const tripVersionRef = useRef(1);
 
   const { data: trip, isLoading, isError } = useQuery({
@@ -88,11 +120,12 @@ export default function TripDetailPage() {
   // Sync server data → local state
   useEffect(() => {
     if (trip?.days) {
-      const days = trip.days.map((d) => ({
-        ...d,
-        date: new Date(d.date).toISOString().split("T")[0],
-      }));
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      const serverDays = normalizeTripDays(trip.days);
+      const days = mergeDirtyTripDays(
+        serverDays,
+        localDaysRef.current,
+        dirtyDayIdsRef.current
+      );
       setLocalDays(days);
       localDaysRef.current = days;
       tripVersionRef.current = trip.version ?? 1;
@@ -128,9 +161,17 @@ export default function TripDetailPage() {
     };
   }, [id, queryClient]);
 
+  const updatePendingSaveCount = useCallback((delta: number) => {
+    pendingRemoteSaveCountRef.current = Math.max(
+      0,
+      pendingRemoteSaveCountRef.current + delta
+    );
+    setIsSaving(pendingRemoteSaveCountRef.current > 0);
+  }, []);
+
   /** Debounced batch update for a given day */
   const scheduleBatchUpdate = useCallback(
-    (dayId: string, events: TripEvent[]) => {
+    (dayId: string, events: TripEvent[], revision: number) => {
       const existing = debounceTimers.current.get(dayId);
       if (existing) clearTimeout(existing);
       const timer = setTimeout(async () => {
@@ -138,33 +179,61 @@ export default function TripDetailPage() {
         const day = localDaysRef.current.find((d) => d.id === dayId);
         if (!day) return;
 
-        setIsSaving(true);
-        try {
-          const res = await batchUpdateEvents(
-            id,
-            tripVersionRef.current,
-            day.dayNumber,
-            events
-          );
-          if (res.ok) {
-            tripVersionRef.current += 1;
-            queryClient.invalidateQueries({ queryKey: ["trip", id] });
-          } else {
-            console.error("Failed to save trip events", await res.text());
+        const save = async () => {
+          updatePendingSaveCount(1);
+          try {
+            let result = await batchUpdateEvents(
+              id,
+              tripVersionRef.current,
+              day.dayNumber,
+              events
+            );
+
+            if (
+              !result.ok &&
+              result.status === 409 &&
+              result.currentVersion !== undefined
+            ) {
+              tripVersionRef.current = result.currentVersion;
+              result = await batchUpdateEvents(
+                id,
+                result.currentVersion,
+                day.dayNumber,
+                events
+              );
+            }
+
+            if (result.ok) {
+              tripVersionRef.current += 1;
+              if (dayRevisionsRef.current.get(dayId) === revision) {
+                dirtyDayIdsRef.current.delete(dayId);
+              }
+              queryClient.invalidateQueries({ queryKey: ["trip", id] });
+            } else {
+              console.error("Failed to save trip events", result.message);
+            }
+          } catch (error) {
+            console.error(error);
+          } finally {
+            updatePendingSaveCount(-1);
           }
-        } catch (error) {
-          console.error(error);
-        } finally {
-          setIsSaving(false);
-        }
+        };
+
+        remoteSaveQueueRef.current = remoteSaveQueueRef.current
+          .catch(() => undefined)
+          .then(save);
       }, 800);
       debounceTimers.current.set(dayId, timer);
     },
-    [id, queryClient]
+    [id, queryClient, updatePendingSaveCount]
   );
 
   const handleEventsChange = useCallback(
     (dayId: string, events: TripEvent[]) => {
+      dirtyDayIdsRef.current.add(dayId);
+      const revision = (dayRevisionsRef.current.get(dayId) ?? 0) + 1;
+      dayRevisionsRef.current.set(dayId, revision);
+
       setLocalDays((prev) => {
         const next = prev.map((d) => (d.id === dayId ? { ...d, events } : d));
         localDaysRef.current = next;
@@ -172,7 +241,7 @@ export default function TripDetailPage() {
       });
       // Write to IDB immediately, then debounce remote sync
       saveEventsOffline(dayId, events).catch(console.error);
-      scheduleBatchUpdate(dayId, events);
+      scheduleBatchUpdate(dayId, events, revision);
     },
     [scheduleBatchUpdate, saveEventsOffline]
   );
