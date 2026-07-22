@@ -29,7 +29,7 @@ cp .env.local.example .env.local
 npm run db:generate
 npm run db:migrate -- --name init
 
-# 4. 在 Supabase SQL Editor 執行 trigger
+# 4. 在 Supabase SQL Editor 執行 auth trigger 與 RLS policies
 # 複製 supabase/seed.sql 內容貼上執行
 
 # 5. 啟動開發伺服器
