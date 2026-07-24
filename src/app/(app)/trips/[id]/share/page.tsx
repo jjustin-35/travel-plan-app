@@ -44,6 +44,7 @@ export default function ShareManagePage() {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -64,7 +65,12 @@ export default function ShareManagePage() {
   };
 
   const deleteShare = async (shareId: string) => {
-    await fetch(`/api/trips/${id}/shares/${shareId}`, { method: "DELETE" });
+    setDeleteError(null);
+    const res = await fetch(`/api/trips/${id}/shares/${shareId}`, { method: "DELETE" });
+    if (!res.ok) {
+      setDeleteError("無法停用分享連結，請稍後再試。");
+      return;
+    }
     setShares((prev) => prev.filter((s) => s.id !== shareId));
   };
 
@@ -119,6 +125,11 @@ export default function ShareManagePage() {
               {isCreating ? "建立中…" : "+ 新增"}
             </button>
           </div>
+          {deleteError && (
+            <p role="alert" className="text-xs text-red-500 mb-3">
+              {deleteError}
+            </p>
+          )}
 
           {shares.length === 0 ? (
             <p className="text-xs text-muted text-center py-6">尚未建立任何分享連結</p>
