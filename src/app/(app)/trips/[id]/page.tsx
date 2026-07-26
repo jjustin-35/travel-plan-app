@@ -165,13 +165,19 @@ export default function TripDetailPage() {
 
   const handleEventsChange = useCallback(
     (dayId: string, events: TripEvent[]) => {
+      const dayNumber = localDaysRef.current.find(
+        (d) => d.id === dayId
+      )?.dayNumber;
+
       setLocalDays((prev) => {
         const next = prev.map((d) => (d.id === dayId ? { ...d, events } : d));
         localDaysRef.current = next;
         return next;
       });
       // Write to IDB immediately, then debounce remote sync
-      saveEventsOffline(dayId, events).catch(console.error);
+      if (dayNumber !== undefined) {
+        saveEventsOffline(dayId, dayNumber, events).catch(console.error);
+      }
       scheduleBatchUpdate(dayId, events);
     },
     [scheduleBatchUpdate, saveEventsOffline]
