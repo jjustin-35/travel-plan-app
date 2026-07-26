@@ -109,10 +109,14 @@ export async function updateTripEvents(
   return await prisma.$transaction(async (tx) => {
     const trip = await tx.trip.findFirst({
       where: { id: tripId, userId },
-      select: { id: true, version: true },
+      select: { id: true, version: true, status: true },
     });
 
     if (!trip) throw new Error("Trip not found");
+
+    if (trip.status === "generating") {
+      return { conflict: true, currentVersion: trip.version };
+    }
 
     if (clientVersion !== trip.version) {
       return { conflict: true, currentVersion: trip.version };
