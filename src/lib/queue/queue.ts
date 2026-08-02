@@ -1,4 +1,4 @@
-import { Queue } from "bullmq";
+import { Queue, type ConnectionOptions } from "bullmq";
 import IORedis from "ioredis";
 
 let _connection: IORedis | null = null;
@@ -10,17 +10,6 @@ export function getRedisConnection(): IORedis {
     });
   }
   return _connection;
-}
-
-function getConnectionOptions() {
-  const url = process.env.REDIS_URL ?? "redis://localhost:6379";
-  const parsed = new URL(url);
-  return {
-    host: parsed.hostname,
-    port: parseInt(parsed.port || "6379", 10),
-    password: parsed.password || undefined,
-    maxRetriesPerRequest: null as unknown as undefined,
-  };
 }
 
 export type TripGenerationJobData = {
@@ -41,14 +30,12 @@ export type TripGenerationJobData = {
   idempotencyKey: string;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let tripQueue: Queue<any> | null = null;
+let tripQueue: Queue<TripGenerationJobData> | null = null;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function getTripQueue(): Queue<any> {
+export function getTripQueue(): Queue<TripGenerationJobData> {
   if (!tripQueue) {
     tripQueue = new Queue("trip-generation", {
-      connection: getConnectionOptions(),
+      connection: getRedisConnection() as unknown as ConnectionOptions,
       defaultJobOptions: {
         attempts: 3,
         backoff: {
