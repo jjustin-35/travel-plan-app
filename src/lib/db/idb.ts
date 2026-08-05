@@ -37,6 +37,7 @@ export type PendingSync = {
   tripId: string;
   dayId: string;
   dayNumber?: number;
+  clientVersion?: number;
   events: TripEvent[];
   updatedAt: number;
 };
@@ -103,6 +104,7 @@ export async function queueSync(
   tripId: string,
   dayId: string,
   dayNumber: number,
+  clientVersion: number,
   events: TripEvent[]
 ): Promise<void> {
   const db = await getDb();
@@ -112,6 +114,7 @@ export async function queueSync(
     tripId,
     dayId,
     dayNumber,
+    clientVersion,
     events,
     updatedAt: Date.now(),
   });
