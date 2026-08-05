@@ -118,13 +118,16 @@ export function useOfflineSync({
               const day = cached?.days.find((d) => d.id === sync.dayId);
               const dayNumber = sync.dayNumber ?? day?.dayNumber;
               if (dayNumber === undefined) return;
+              if (!day && sync.clientVersion === undefined) return;
 
               const res = await fetch(`/api/trips/${sync.tripId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(
                   buildTripPatchBody(
-                    cached?.version ?? tripVersionRef.current,
+                    sync.clientVersion ??
+                      cached?.version ??
+                      tripVersionRef.current,
                     dayNumber,
                     sync.events
                   )
@@ -165,7 +168,7 @@ export function useOfflineSync({
       await cacheTrip({ ...cached, days: updatedDays });
     }
     // Queue for remote sync
-    await queueSync(tripId, dayId, dayNumber, events);
+    await queueSync(tripId, dayId, dayNumber, tripVersionRef.current, events);
     setHasPendingSync(true);
   };
 

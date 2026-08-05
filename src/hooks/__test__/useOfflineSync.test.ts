@@ -87,7 +87,13 @@ describe("useOfflineSync", () => {
 
     expect(mockGetCachedTrip).toHaveBeenCalledWith("trip-1");
     expect(mockCacheTrip).toHaveBeenCalled();
-    expect(mockQueueSync).toHaveBeenCalledWith("trip-1", "day-1", 1, updatedEvents);
+    expect(mockQueueSync).toHaveBeenCalledWith(
+      "trip-1",
+      "day-1",
+      1,
+      1,
+      updatedEvents
+    );
     expect(result.current.hasPendingSync).toBe(true);
   });
 
@@ -99,6 +105,7 @@ describe("useOfflineSync", () => {
           tripId: "trip-1",
           dayId: "day-1",
           dayNumber: 1,
+          clientVersion: 1,
           events: [uiTripEvent],
           updatedAt: Date.now(),
         },
@@ -136,6 +143,7 @@ describe("useOfflineSync", () => {
           tripId: "trip-1",
           dayId: "day-old",
           dayNumber: 1,
+          clientVersion: 1,
           events: [uiTripEvent],
           updatedAt: Date.now(),
         },
@@ -158,6 +166,45 @@ describe("useOfflineSync", () => {
       );
       expect(mockResolveSync).toHaveBeenCalledWith("trip-1", "day-old");
     });
+  });
+
+  it("replays pending syncs with the version captured when they were queued", async () => {
+    const regeneratedTrip = {
+      ...sampleTrip,
+      version: 2,
+      days: [{ ...sampleTrip.days[0], id: "day-new" }],
+      cachedAt: Date.now(),
+    };
+    const pendingSync = {
+      id: "trip-1__day-old",
+      tripId: "trip-1",
+      dayId: "day-old",
+      dayNumber: 1,
+      clientVersion: 1,
+      events: [uiTripEvent],
+      updatedAt: Date.now(),
+    };
+
+    mockGetCachedTrip.mockResolvedValue(regeneratedTrip);
+    mockGetAllPendingSyncs
+      .mockResolvedValueOnce([pendingSync])
+      .mockResolvedValueOnce([pendingSync]);
+    vi.mocked(fetch).mockResolvedValue({ ok: false } as Response);
+
+    renderHook(() =>
+      useOfflineSync({ tripId: "trip-1", trip: { ...sampleTrip, version: 2 } })
+    );
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/trips/trip-1",
+        expect.objectContaining({
+          method: "PATCH",
+          body: expect.stringContaining('"client_version":1'),
+        })
+      );
+    });
+    expect(mockResolveSync).not.toHaveBeenCalled();
   });
 });
 
