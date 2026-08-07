@@ -53,7 +53,7 @@ describe("POST /api/trips/[id]/regenerate", () => {
   });
 
   it("marks the trip failed if synchronous regeneration times out", async () => {
-    const { POST } = await import("./route");
+    const { POST } = await import("../route");
     mockGenerateTrip.mockReturnValue(new Promise(() => {}));
 
     const responsePromise = POST(
