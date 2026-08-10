@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { PdfDownloadButton } from "@/components/trip/PdfDownloadButton";
 
 type ShareLink = {
@@ -39,7 +40,6 @@ type Trip = {
 
 export default function ShareManagePage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const [shares, setShares] = useState<ShareLink[]>([]);
   const [trip, setTrip] = useState<Trip | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -79,12 +79,13 @@ export default function ShareManagePage() {
     <div className="min-h-screen bg-cream">
       {/* Header */}
       <div className="bg-white border-b border-border px-4 py-3 flex items-center gap-3">
-        <button
-          onClick={() => router.back()}
+        <Link
+          href={`/trips/${id}`}
           className="text-lg text-charcoal hover:text-coral transition-colors"
+          aria-label="返回行程"
         >
           ←
-        </button>
+        </Link>
         <h1 className="font-bold text-charcoal text-sm">分享與匯出</h1>
       </div>
 

@@ -1,13 +1,15 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TimelineView } from "@/components/trip/TimelineView";
 import { LoadingAnimation } from "@/components/trip/LoadingAnimation";
 import { EditEventModal } from "@/components/trip/EditEventModal";
 import { RippleButton } from "@/components/ui/RippleButton";
 import { AddFab } from "@/components/ui/AddFab";
+import { TripDetailSkeleton } from "@/components/ui/skeletons";
 import { ArrowLeft, RefreshCw, Share2, WifiOff, RefreshCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
@@ -65,7 +67,6 @@ async function batchUpdateEvents(
 
 export default function TripDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const queryClient = useQueryClient();
 
   const [activeDay, setActiveDay] = useState(1);
@@ -217,8 +218,12 @@ export default function TripDetailPage() {
     [localDays, addingForDay, activeDay, handleEventsChange]
   );
 
-  if (isLoading || trip?.status === "generating") {
-    return <LoadingAnimation destination={trip?.destination} />;
+  if (isLoading) {
+    return <TripDetailSkeleton />;
+  }
+
+  if (trip?.status === "generating") {
+    return <LoadingAnimation destination={trip.destination} />;
   }
 
   if (isError || !trip) {
@@ -226,12 +231,9 @@ export default function TripDetailPage() {
       <div className="flex flex-col items-center justify-center min-h-screen p-8 text-center">
         <div className="text-5xl mb-4">😕</div>
         <p className="font-semibold text-charcoal">找不到行程</p>
-        <button
-          onClick={() => router.push("/")}
-          className="mt-4 text-coral text-sm font-medium"
-        >
+        <Link href="/" className="mt-4 text-coral text-sm font-medium">
           返回首頁
-        </button>
+        </Link>
       </div>
     );
   }
@@ -281,13 +283,13 @@ export default function TripDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
-          <RippleButton
-            onClick={() => router.push("/")}
-            rippleColor="rgba(160,120,80,0.15)"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border text-charcoal hover:bg-butter transition-colors"
+          <Link
+            href="/"
+            aria-label="返回首頁"
+            className="relative overflow-hidden flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border text-charcoal hover:bg-butter transition-colors"
           >
             <ArrowLeft size={18} />
-          </RippleButton>
+          </Link>
           <div className="min-w-0">
             <h1 className="font-extrabold text-charcoal text-sm leading-tight truncate">
               {trip.title}
@@ -311,14 +313,13 @@ export default function TripDetailPage() {
           >
             <RefreshCw size={16} />
           </RippleButton>
-          <RippleButton
-            onClick={() => router.push(`/trips/${id}/share`)}
-            rippleColor="rgba(160,120,80,0.15)"
-            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border text-muted hover:text-coral hover:bg-butter transition-colors"
+          <Link
+            href={`/trips/${id}/share`}
             title="分享行程"
+            className="relative overflow-hidden flex h-10 w-10 items-center justify-center rounded-2xl border border-border text-muted hover:text-coral hover:bg-butter transition-colors"
           >
             <Share2 size={16} />
-          </RippleButton>
+          </Link>
         </div>
       </div>
 

@@ -3,14 +3,29 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TripCard } from "@/components/trip/TripCard";
 
-const mockPush = vi.fn();
 const mockRefresh = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
-    push: mockPush,
     refresh: mockRefresh,
   }),
+}));
+
+vi.mock("next/link", () => ({
+  default: ({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string;
+    children: React.ReactNode;
+    onClick?: (e: React.MouseEvent) => void;
+    className?: string;
+  }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 const sampleTrip = {
@@ -32,16 +47,15 @@ describe("TripCard", () => {
     ));
   });
 
-  it("renders trip summary and opens detail page on click", async () => {
-    const user = userEvent.setup();
+  it("renders trip summary and links to detail page", () => {
     render(<TripCard trip={sampleTrip} />);
     expect(screen.getByText("東京五日遊")).toBeInTheDocument();
     expect(screen.getByText("東京")).toBeInTheDocument();
     expect(screen.getByText("👥 2 人")).toBeInTheDocument();
     expect(screen.getByText("自由行")).toBeInTheDocument();
 
-    await user.click(screen.getByText("東京五日遊"));
-    expect(mockPush).toHaveBeenCalledWith("/trips/trip-1");
+    const link = screen.getByRole("link");
+    expect(link).toHaveAttribute("href", "/trips/trip-1");
   });
 
   it("shows destination emoji for known cities", () => {
@@ -77,7 +91,6 @@ describe("TripCard", () => {
       method: "DELETE",
     });
     expect(mockRefresh).toHaveBeenCalled();
-    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it("does not delete when confirmation is cancelled", async () => {
