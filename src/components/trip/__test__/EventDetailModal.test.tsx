@@ -9,6 +9,7 @@ describe("EventDetailModal", () => {
     render(
       <EventDetailModal
         event={uiTripEvent}
+        onAlternative={vi.fn()}
         onEdit={vi.fn()}
         onDelete={vi.fn()}
         onClose={vi.fn()}
@@ -21,19 +22,24 @@ describe("EventDetailModal", () => {
     expect(screen.getByText(/東京最古老的寺廟/)).toBeInTheDocument();
   });
 
-  it("calls onEdit and onDelete", async () => {
+  it("calls action handlers", async () => {
     const user = userEvent.setup();
+    const onAlternative = vi.fn();
     const onEdit = vi.fn();
     const onDelete = vi.fn();
 
     render(
       <EventDetailModal
         event={uiTripEvent}
+        onAlternative={onAlternative}
         onEdit={onEdit}
         onDelete={onDelete}
         onClose={vi.fn()}
       />
     );
+
+    await user.click(screen.getByText("換一個"));
+    expect(onAlternative).toHaveBeenCalled();
 
     await user.click(screen.getByText("編輯"));
     expect(onEdit).toHaveBeenCalled();
@@ -49,6 +55,7 @@ describe("EventDetailModal", () => {
     const { container: _container } = render(
       <EventDetailModal
         event={uiTripEvent}
+        onAlternative={vi.fn()}
         onEdit={vi.fn()}
         onDelete={vi.fn()}
         onClose={onClose}
