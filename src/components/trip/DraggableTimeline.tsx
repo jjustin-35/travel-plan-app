@@ -10,7 +10,6 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
-  DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -24,6 +23,7 @@ import { EventCard } from "@/components/trip/EventCard";
 import { EventDetailModal } from "@/components/trip/EventDetailModal";
 import { AlternativesPanel } from "@/components/trip/AlternativesPanel";
 import { useAlternativesStore, TripEvent } from "@/stores/alternatives.store";
+import { toApiEvent } from "@/lib/trip-patch";
 
 const LONG_PRESS_MS = 450;
 
@@ -73,8 +73,27 @@ type DraggableTimelineProps = {
   onAddEvent: (dayNumber: number) => void;
 };
 
+type ApiTripEvent = ReturnType<typeof toApiEvent>;
+
+function fromApiEvent(event: ApiTripEvent): TripEvent {
+  return {
+    id: event.id,
+    title: event.title,
+    location: event.location,
+    description: event.description,
+    category: event.category,
+    eventTime: event.event_time,
+    durationMinutes: event.duration_minutes,
+    sortOrder: event.sort_order,
+    lat: event.lat,
+    lng: event.lng,
+  };
+}
+
 export function DraggableTimeline({
+  tripId,
   dayId,
+  dayDate,
   events,
   onEventsChange,
   onEditEvent,
@@ -96,7 +115,7 @@ export function DraggableTimeline({
     })
   );
 
-  const handleDragStart = useCallback((_e: DragStartEvent) => {
+  const handleDragStart = useCallback(() => {
     if (dragJustEndedTimer.current) {
       clearTimeout(dragJustEndedTimer.current);
       dragJustEndedTimer.current = null;
@@ -126,6 +145,50 @@ export function DraggableTimeline({
       }, 200);
     },
     [events, dayId, onEventsChange]
+  );
+
+  const handleRequestAlternative = useCallback(
+    async (event: TripEvent) => {
+      alternativesStore.startLoading(event.id);
+      setDetailEvent(null);
+
+      try {
+        const response = await fetch(
+          `/api/trips/${tripId}/events/${event.id}/alternatives`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              event: toApiEvent(event),
+              context: {
+                day_date: dayDate,
+                surrounding_events: events
+                  .filter((candidate) => candidate.id !== event.id)
+                  .map(toApiEvent),
+              },
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to generate alternatives");
+        }
+
+        const data = (await response.json()) as { alternatives: ApiTripEvent[] };
+        if (useAlternativesStore.getState().eventId !== event.id) return;
+
+        alternativesStore.setAlternatives(
+          event.id,
+          data.alternatives.map(fromApiEvent)
+        );
+      } catch (error) {
+        console.error(error);
+        if (useAlternativesStore.getState().eventId === event.id) {
+          alternativesStore.setError("無法產生備選方案，請稍後再試");
+        }
+      }
+    },
+    [alternativesStore, dayDate, events, tripId]
   );
 
   const handleDeleteEvent = useCallback(
@@ -220,6 +283,7 @@ export function DraggableTimeline({
         <EventDetailModal
           event={detailEvent}
           onClose={() => setDetailEvent(null)}
+          onAlternative={() => handleRequestAlternative(detailEvent)}
           onEdit={() => {
             onEditEvent(detailEvent);
             setDetailEvent(null);

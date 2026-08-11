@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   X,
@@ -14,6 +13,7 @@ import {
   Clock,
   Navigation,
   FileText,
+  RefreshCw,
   type LucideIcon,
 } from "lucide-react";
 import { RippleButton } from "@/components/ui/RippleButton";
@@ -45,6 +45,7 @@ type TripEvent = {
 
 type EventDetailModalProps = {
   event: TripEvent;
+  onAlternative: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onClose: () => void;
@@ -59,6 +60,7 @@ function formatDuration(minutes: number): string {
 
 export function EventDetailModal({
   event,
+  onAlternative,
   onEdit,
   onDelete,
   onClose,
@@ -165,16 +167,23 @@ export function EventDetailModal({
             )}
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="grid grid-cols-3 gap-3 pt-2">
             <button
               onClick={onDelete}
-              className="flex-1 py-3 rounded-2xl border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors"
+              className="py-3 rounded-2xl border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors"
             >
               刪除
             </button>
+            <button
+              onClick={onAlternative}
+              className="flex items-center justify-center gap-1.5 py-3 rounded-2xl border border-coral/30 text-coral text-sm font-semibold hover:bg-coral/10 transition-colors"
+            >
+              <RefreshCw size={15} />
+              換一個
+            </button>
             <RippleButton
               onClick={onEdit}
-              className="flex-1 py-3 rounded-2xl bg-coral text-white text-sm font-bold hover:bg-wood transition-colors"
+              className="py-3 rounded-2xl bg-coral text-white text-sm font-bold hover:bg-wood transition-colors"
             >
               編輯
             </RippleButton>
