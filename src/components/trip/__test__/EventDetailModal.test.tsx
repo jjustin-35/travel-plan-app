@@ -52,7 +52,7 @@ describe("EventDetailModal", () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
 
-    const { container: _container } = render(
+    render(
       <EventDetailModal
         event={uiTripEvent}
         onAlternative={vi.fn()}

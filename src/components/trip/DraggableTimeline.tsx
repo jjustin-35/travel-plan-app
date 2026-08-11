@@ -10,7 +10,6 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
-  DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -116,7 +115,7 @@ export function DraggableTimeline({
     })
   );
 
-  const handleDragStart = useCallback((_e: DragStartEvent) => {
+  const handleDragStart = useCallback(() => {
     if (dragJustEndedTimer.current) {
       clearTimeout(dragJustEndedTimer.current);
       dragJustEndedTimer.current = null;
