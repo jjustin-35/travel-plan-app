@@ -10,6 +10,7 @@ import { validTripInput } from "@/__test__/fixtures";
 
 const mockGenerateTrip = vi.fn();
 const mockCreateTripWithDays = vi.fn();
+const mockEnsureUserExists = vi.fn();
 const mockGetTripsByUser = vi.fn();
 const mockGetTripById = vi.fn();
 const mockUpdateTripEvents = vi.fn();
@@ -21,6 +22,7 @@ vi.mock("@/lib/services/ai-generation.service", () => ({
 
 vi.mock("@/lib/db/trip.repository", () => ({
   createTripWithDays: (...args: unknown[]) => mockCreateTripWithDays(...args),
+  ensureUserExists: (...args: unknown[]) => mockEnsureUserExists(...args),
   getTripsByUser: (...args: unknown[]) => mockGetTripsByUser(...args),
   getTripById: (...args: unknown[]) => mockGetTripById(...args),
   updateTripEvents: (...args: unknown[]) => mockUpdateTripEvents(...args),
@@ -35,11 +37,13 @@ describe("trip.service", () => {
   it("createTrip generates AI itinerary then persists to DB", async () => {
     const aiResult = { trip: { title: "東京五日遊", days: [] } };
     const savedTrip = { id: "trip-1", title: "東京五日遊" };
+    mockEnsureUserExists.mockResolvedValue(undefined);
     mockGenerateTrip.mockResolvedValue(aiResult);
     mockCreateTripWithDays.mockResolvedValue(savedTrip);
 
     const result = await createTrip("user-1", validTripInput);
 
+    expect(mockEnsureUserExists).toHaveBeenCalledWith("user-1");
     expect(mockGenerateTrip).toHaveBeenCalledWith(validTripInput);
     expect(mockCreateTripWithDays).toHaveBeenCalledWith(
       "user-1",
@@ -47,6 +51,17 @@ describe("trip.service", () => {
       aiResult
     );
     expect(result).toEqual(savedTrip);
+  });
+
+  it("createTrip provisions the user before calling AI", async () => {
+    mockEnsureUserExists.mockRejectedValue(new Error("database unavailable"));
+
+    await expect(createTrip("user-1", validTripInput)).rejects.toThrow(
+      "database unavailable"
+    );
+
+    expect(mockGenerateTrip).not.toHaveBeenCalled();
+    expect(mockCreateTripWithDays).not.toHaveBeenCalled();
   });
 
   it("listTrips delegates to repository", async () => {

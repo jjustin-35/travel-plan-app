@@ -1,10 +1,12 @@
+import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
+
+import { ensureUserExists } from "@/lib/db/trip.repository";
+import { prisma } from "@/lib/db/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { listTrips } from "@/lib/services/trip.service";
 import { TripInputSchema } from "@/lib/schemas/trip.schema";
-import { ZodError } from "zod";
-import { prisma } from "@/lib/db/prisma";
-import { randomUUID } from "crypto";
 
 const BULLMQ_ENABLED = process.env.REDIS_URL !== undefined && process.env.REDIS_URL !== "";
 
@@ -43,6 +45,8 @@ export async function POST(request: NextRequest) {
     // Async path: enqueue BullMQ job
     const { getTripQueue } = await import("@/lib/queue/queue");
     const idempotencyKey = randomUUID();
+
+    await ensureUserExists(user.id);
 
     const { trip, job } = await prisma.$transaction(async (tx) => {
       const createdTrip = await tx.trip.create({

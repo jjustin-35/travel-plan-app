@@ -1,6 +1,7 @@
 import { generateTrip } from "@/lib/services/ai-generation.service";
 import {
   createTripWithDays,
+  ensureUserExists,
   getTripsByUser,
   getTripById,
   updateTripEvents,
@@ -9,6 +10,7 @@ import {
 import { TripInput } from "@/lib/schemas/trip.schema";
 
 export async function createTrip(userId: string, input: TripInput) {
+  await ensureUserExists(userId);
   const aiResult = await generateTrip(input);
   const trip = await createTripWithDays(userId, input, aiResult);
   return trip;

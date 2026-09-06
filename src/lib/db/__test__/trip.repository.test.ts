@@ -1,12 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { updateTripEvents } from "@/lib/db/trip.repository";
+import { ensureUserExists, updateTripEvents } from "@/lib/db/trip.repository";
 import { prisma } from "@/lib/db/prisma";
 import { uiTripEvent } from "@/__test__/fixtures";
 
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     $transaction: vi.fn(),
+    user: {
+      upsert: vi.fn(),
+    },
   },
 }));
 
@@ -15,6 +18,23 @@ const mockPrisma = vi.mocked(prisma);
 describe("trip.repository", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("provisions a missing public user row", async () => {
+    vi.mocked(prisma.user.upsert).mockResolvedValue({
+      id: "user-1",
+      name: null,
+      avatarUrl: null,
+      createdAt: new Date("2026-04-01T00:00:00.000Z"),
+    });
+
+    await ensureUserExists("user-1");
+
+    expect(prisma.user.upsert).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      update: {},
+      create: { id: "user-1" },
+    });
   });
 
   it("rejects event updates while a trip is regenerating", async () => {
