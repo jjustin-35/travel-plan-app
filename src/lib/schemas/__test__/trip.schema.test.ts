@@ -5,6 +5,7 @@ import {
   TripResponseSchema,
   TripInputSchema,
   AlternativeEventsSchema,
+  getTripResponseInputMismatch,
 } from "@/lib/schemas/trip.schema";
 import {
   validTripEvent,
@@ -60,6 +61,38 @@ describe("TripResponseSchema", () => {
     expect(() =>
       TripResponseSchema.parse({ trip: { title: "", days: [validTripDay] } })
     ).toThrow();
+  });
+
+  it("matches the requested trip duration", () => {
+    expect(
+      getTripResponseInputMismatch(validTripInput, validTripResponse)
+    ).toBeNull();
+  });
+
+  it("reports missing generated days", () => {
+    expect(
+      getTripResponseInputMismatch(
+        { ...validTripInput, endDate: "2026-04-02", days: 2, nights: 1 },
+        validTripResponse
+      )
+    ).toBe("Expected 2 days, received 1.");
+  });
+
+  it("reports duplicate generated day numbers", () => {
+    expect(
+      getTripResponseInputMismatch(
+        { ...validTripInput, endDate: "2026-04-02", days: 2, nights: 1 },
+        {
+          trip: {
+            title: "東京二日遊",
+            days: [
+              validTripDay,
+              { ...validTripDay, day: 1 },
+            ],
+          },
+        }
+      )
+    ).toBe("Expected unique day numbers 1-2, received 1, 1.");
   });
 });
 

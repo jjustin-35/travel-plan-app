@@ -47,3 +47,39 @@ export type TripEvent = z.infer<typeof TripEventSchema>;
 export type TripDay = z.infer<typeof TripDaySchema>;
 export type TripResponse = z.infer<typeof TripResponseSchema>;
 export type TripInput = z.infer<typeof TripInputSchema>;
+
+export function getTripResponseInputMismatch(
+  input: TripInput,
+  response: TripResponse
+): string | null {
+  const expectedDayNumbers = Array.from(
+    { length: input.days },
+    (_, index) => index + 1
+  );
+  const actualDayNumbers = response.trip.days.map((day) => day.day);
+
+  if (actualDayNumbers.length !== expectedDayNumbers.length) {
+    return `Expected ${expectedDayNumbers.length} days, received ${actualDayNumbers.length}.`;
+  }
+
+  const actualSet = new Set(actualDayNumbers);
+  if (actualSet.size !== actualDayNumbers.length) {
+    return `Expected unique day numbers 1-${input.days}, received ${actualDayNumbers.join(", ")}.`;
+  }
+
+  const unexpected = actualDayNumbers.filter(
+    (dayNumber) => dayNumber < 1 || dayNumber > input.days
+  );
+  if (unexpected.length > 0) {
+    return `Expected day numbers 1-${input.days}, received unexpected day numbers ${unexpected.join(", ")}.`;
+  }
+
+  const missing = expectedDayNumbers.filter(
+    (dayNumber) => !actualSet.has(dayNumber)
+  );
+  if (missing.length > 0) {
+    return `Missing expected day numbers ${missing.join(", ")}.`;
+  }
+
+  return null;
+}

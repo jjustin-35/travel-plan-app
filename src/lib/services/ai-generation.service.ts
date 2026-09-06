@@ -6,6 +6,7 @@ import {
   TripResponseSchema,
   AlternativeEventsSchema,
   TripEvent,
+  getTripResponseInputMismatch,
 } from "@/lib/schemas/trip.schema";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
@@ -212,7 +213,16 @@ export async function generateTrip(input: TripInput): Promise<TripResponse> {
     try {
       const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       const parsed = JSON.parse(cleaned);
-      return TripResponseSchema.parse(parsed);
+      const validated = TripResponseSchema.parse(parsed);
+      const mismatch = getTripResponseInputMismatch(input, validated);
+      if (!mismatch) return validated;
+
+      lastErrorMessage = mismatch;
+      if (attempt === MAX_INTERNAL_RETRIES) {
+        throw new AIValidationError(
+          `AI returned an itinerary that does not match the requested duration: ${mismatch}`
+        );
+      }
     } catch (err) {
       const isRetryable = err instanceof ZodError || err instanceof SyntaxError;
       if (isRetryable) {

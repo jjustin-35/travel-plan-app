@@ -8,6 +8,7 @@ import {
 import {
   validTripInput,
   validTripResponse,
+  validTripDay,
   validTripEvent,
   VALID_EVENT_ID_2,
   VALID_EVENT_ID_3,
@@ -60,6 +61,52 @@ describe("ai-generation.service", () => {
       const result = await generateTrip(validTripInput);
       expect(result).toEqual(validTripResponse);
       expect(mockGenerate).toHaveBeenCalledTimes(2);
+    });
+
+    it("retries when generated days do not match the requested duration", async () => {
+      const twoDayInput = {
+        ...validTripInput,
+        endDate: "2026-04-02",
+        days: 2,
+        nights: 1,
+      };
+      const twoDayResponse = {
+        trip: {
+          title: "東京二日遊",
+          days: [
+            validTripDay,
+            {
+              ...validTripDay,
+              day: 2,
+              date: "2026-04-02",
+              events: [
+                {
+                  ...validTripEvent,
+                  id: VALID_EVENT_ID_2,
+                  title: "上野公園",
+                  sort_order: 1,
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      mockGenerate
+        .mockResolvedValueOnce({
+          text: JSON.stringify(validTripResponse),
+        })
+        .mockResolvedValueOnce({
+          text: JSON.stringify(twoDayResponse),
+        });
+
+      const result = await generateTrip(twoDayInput);
+
+      expect(result).toEqual(twoDayResponse);
+      expect(mockGenerate).toHaveBeenCalledTimes(2);
+      expect(mockGenerate.mock.calls[1][0].contents).toContain(
+        "Expected 2 days, received 1."
+      );
     });
 
     it("throws AIValidationError after exhausting retries", async () => {
