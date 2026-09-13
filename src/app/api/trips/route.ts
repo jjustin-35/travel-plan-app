@@ -1,10 +1,10 @@
-import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { ZodError } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { listTrips } from "@/lib/services/trip.service";
 import { TripInputSchema } from "@/lib/schemas/trip.schema";
+import { ZodError } from "zod";
 import { prisma } from "@/lib/db/prisma";
+import { randomUUID } from "crypto";
 
 const BULLMQ_ENABLED = process.env.REDIS_URL !== undefined && process.env.REDIS_URL !== "";
 
@@ -105,21 +105,12 @@ export async function POST(request: NextRequest) {
     );
   } else {
     // Sync path (no Redis): call Gemini directly
-    const { createTrip, TripCreationTimeoutError } = await import(
-      "@/lib/services/trip.service"
-    );
+    const { createTrip } = await import("@/lib/services/trip.service");
     const { AIRateLimitError, AIValidationError } = await import("@/lib/services/ai-generation.service");
     try {
       const trip = await createTrip(user.id, input);
       return NextResponse.json({ trip }, { status: 201 });
     } catch (err) {
-      if (err instanceof TripCreationTimeoutError) {
-        console.error(err);
-        return NextResponse.json(
-          { error: "AI generation timed out, please try again" },
-          { status: 504 }
-        );
-      }
       if (err instanceof AIRateLimitError) {
         console.error(err);
         return NextResponse.json(

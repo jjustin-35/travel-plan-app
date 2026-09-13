@@ -1,11 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   createTrip,
   listTrips,
   getTrip,
   patchTrip,
   deleteTrip,
-  TripCreationTimeoutError,
 } from "@/lib/services/trip.service";
 import { validTripInput } from "@/__test__/fixtures";
 
@@ -31,12 +30,6 @@ vi.mock("@/lib/db/trip.repository", () => ({
 describe("trip.service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.TRIP_CREATION_TIMEOUT_MS;
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-    delete process.env.TRIP_CREATION_TIMEOUT_MS;
   });
 
   it("createTrip generates AI itinerary then persists to DB", async () => {
@@ -54,22 +47,6 @@ describe("trip.service", () => {
       aiResult
     );
     expect(result).toEqual(savedTrip);
-  });
-
-  it("times out sync trip creation before persisting a hung AI response", async () => {
-    vi.useFakeTimers();
-    process.env.TRIP_CREATION_TIMEOUT_MS = "1000";
-    mockGenerateTrip.mockReturnValue(new Promise(() => undefined));
-
-    const result = createTrip("user-1", validTripInput);
-    const assertion = expect(result).rejects.toBeInstanceOf(
-      TripCreationTimeoutError
-    );
-
-    await vi.advanceTimersByTimeAsync(1000);
-
-    await assertion;
-    expect(mockCreateTripWithDays).not.toHaveBeenCalled();
   });
 
   it("listTrips delegates to repository", async () => {
