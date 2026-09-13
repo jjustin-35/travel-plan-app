@@ -8,8 +8,49 @@ import {
 } from "@/lib/db/trip.repository";
 import { TripInput } from "@/lib/schemas/trip.schema";
 
+const DEFAULT_TRIP_CREATION_TIMEOUT_MS = 45_000;
+
+export class TripCreationTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TripCreationTimeoutError";
+  }
+}
+
+function getTripCreationTimeoutMs(): number {
+  const configured = Number(process.env.TRIP_CREATION_TIMEOUT_MS);
+  return Number.isFinite(configured) && configured > 0
+    ? configured
+    : DEFAULT_TRIP_CREATION_TIMEOUT_MS;
+}
+
+function withTripCreationTimeout<T>(promise: Promise<T>): Promise<T> {
+  const timeoutMs = getTripCreationTimeoutMs();
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(
+        new TripCreationTimeoutError(
+          `Trip creation AI generation timed out after ${timeoutMs}ms`
+        )
+      );
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      }
+    );
+  });
+}
+
 export async function createTrip(userId: string, input: TripInput) {
-  const aiResult = await generateTrip(input);
+  const aiResult = await withTripCreationTimeout(generateTrip(input));
   const trip = await createTripWithDays(userId, input, aiResult);
   return trip;
 }
