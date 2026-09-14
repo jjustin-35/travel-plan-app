@@ -1,10 +1,8 @@
 // Travel Plan App — Service Worker
-const CACHE_NAME = "travel-plan-v1";
+const CACHE_NAME = "travel-plan-v2";
 const TRIP_API_CACHE = "trip-api-v1";
 
 const PRECACHE_URLS = [
-  "/",
-  "/login",
   "/manifest.json",
 ];
 
@@ -55,7 +53,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navigation (HTML pages): Network-first, fallback to cached shell
+  // Navigation pages can contain authenticated data, so never replay a cached
+  // document for a different auth/session state while offline.
   if (request.mode === "navigate") {
     event.respondWith(handleNavigateRequest(request));
     return;
@@ -66,8 +65,6 @@ async function handleNavigateRequest(request) {
   try {
     return await fetch(request);
   } catch {
-    const cached = await caches.match("/");
-    if (cached) return cached;
     return new Response("Offline", {
       status: 503,
       headers: { "Content-Type": "text/plain; charset=utf-8" },
