@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
+
 import { createClient } from "@/lib/supabase/server";
 import { generateTrip } from "@/lib/services/ai-generation.service";
-import { getTripById, createTripWithDays } from "@/lib/db/trip.repository";
+import { getTripById } from "@/lib/db/trip.repository";
 import { TripInputSchema } from "@/lib/schemas/trip.schema";
 import { prisma } from "@/lib/db/prisma";
-import { ZodError } from "zod";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   } catch (err) {
     await prisma.trip.update({
       where: { id },
-      data: { status: "failed" },
+      data: { status: trip.status === "ready" ? "ready" : "failed" },
     });
     console.error("POST regenerate error:", err);
     return NextResponse.json({ error: "Regeneration failed" }, { status: 500 });
