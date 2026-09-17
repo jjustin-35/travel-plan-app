@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { formatDateRangeOnly } from "@/lib/date-format";
+import { deleteCachedTrip, deletePendingSyncsForTrip } from "@/lib/db/idb";
 
 type Trip = {
   id: string;
@@ -65,6 +66,14 @@ export function TripCard({ trip }: { trip: Trip }) {
     try {
       const res = await fetch(`/api/trips/${trip.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete trip");
+      try {
+        await Promise.all([
+          deleteCachedTrip(trip.id),
+          deletePendingSyncsForTrip(trip.id),
+        ]);
+      } catch (cleanupError) {
+        console.error("Failed to clear local trip data", cleanupError);
+      }
       setShowDeleteConfirm(false);
       router.refresh();
     } catch {
