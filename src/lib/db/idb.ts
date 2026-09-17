@@ -98,6 +98,16 @@ export async function deleteCachedTrip(tripId: string): Promise<void> {
   await db.delete("trips", tripId);
 }
 
+// Remove all queued offline writes for a deleted trip.
+export async function deletePendingSyncsForTrip(tripId: string): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction("pending_syncs", "readwrite");
+  const keys = await tx.store.index("by-tripId").getAllKeys(tripId);
+
+  await Promise.all(keys.map((key) => tx.store.delete(key)));
+  await tx.done;
+}
+
 // Queue a pending sync
 export async function queueSync(
   tripId: string,

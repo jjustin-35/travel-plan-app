@@ -3,6 +3,8 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TripCard } from "@/components/trip/TripCard";
 
+const mockDeleteCachedTrip = vi.hoisted(() => vi.fn());
+const mockDeletePendingSyncsForTrip = vi.hoisted(() => vi.fn());
 const mockPush = vi.fn();
 const mockRefresh = vi.fn();
 
@@ -11,6 +13,11 @@ vi.mock("next/navigation", () => ({
     push: mockPush,
     refresh: mockRefresh,
   }),
+}));
+
+vi.mock("@/lib/db/idb", () => ({
+  deleteCachedTrip: mockDeleteCachedTrip,
+  deletePendingSyncsForTrip: mockDeletePendingSyncsForTrip,
 }));
 
 const sampleTrip = {
@@ -27,6 +34,8 @@ const sampleTrip = {
 describe("TripCard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDeleteCachedTrip.mockResolvedValue(undefined);
+    mockDeletePendingSyncsForTrip.mockResolvedValue(undefined);
     vi.stubGlobal("fetch", vi.fn(() =>
       Promise.resolve({ ok: true } as Response)
     ));
@@ -76,6 +85,8 @@ describe("TripCard", () => {
     expect(fetch).toHaveBeenCalledWith("/api/trips/trip-1", {
       method: "DELETE",
     });
+    expect(mockDeleteCachedTrip).toHaveBeenCalledWith("trip-1");
+    expect(mockDeletePendingSyncsForTrip).toHaveBeenCalledWith("trip-1");
     expect(mockRefresh).toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
   });

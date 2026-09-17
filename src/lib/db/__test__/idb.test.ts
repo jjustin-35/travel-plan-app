@@ -4,6 +4,7 @@ import {
   getCachedTrip,
   getAllCachedTrips,
   deleteCachedTrip,
+  deletePendingSyncsForTrip,
   queueSync,
   getAllPendingSyncs,
   resolveSync,
@@ -76,5 +77,17 @@ describe("idb", () => {
     await queueSync("trip-1", "day-1", 1, [uiTripEvent]);
     await resolveSync("trip-1", "day-1");
     expect(await getAllPendingSyncs()).toHaveLength(0);
+  });
+
+  it("deletes pending syncs for one trip", async () => {
+    await queueSync("trip-1", "day-1", 1, [uiTripEvent]);
+    await queueSync("trip-1", "day-2", 2, [uiTripEvent]);
+    await queueSync("trip-2", "day-1", 1, [uiTripEvent]);
+
+    await deletePendingSyncsForTrip("trip-1");
+
+    const pending = await getAllPendingSyncs();
+    expect(pending).toHaveLength(1);
+    expect(pending[0].tripId).toBe("trip-2");
   });
 });
