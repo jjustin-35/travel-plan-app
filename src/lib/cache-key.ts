@@ -4,6 +4,8 @@ export type CacheKeyInput = {
   destination: string;
   startDate: string;
   endDate: string;
+  days: number;
+  nights: number;
   peopleCount: number;
   tripType: string;
   budgetRange?: string;
@@ -16,6 +18,8 @@ export function buildCacheKey(userId: string, input: CacheKeyInput): string {
     destination: input.destination.trim().toLowerCase(),
     startDate: input.startDate,
     endDate: input.endDate,
+    days: input.days,
+    nights: input.nights,
     peopleCount: input.peopleCount,
     tripType: input.tripType,
     budgetRange: input.budgetRange ?? "",
