@@ -1,4 +1,5 @@
--- Run this SQL in Supabase SQL Editor after creating the project and applying Prisma migrations.
+-- Legacy bootstrap for databases created before Prisma migrations managed RLS.
+-- New databases get these auth trigger and RLS settings from prisma/migrations.
 
 -- Sync auth.users -> public.users on new registration
 create or replace function public.handle_new_user()
