@@ -27,10 +27,10 @@ cp .env.local.example .env.local
 # DATABASE_URL: Supabase > Project Settings > Database > Transaction mode connection string（執行時連線）
 # DIRECT_URL: Supabase > Project Settings > Database > Session mode connection string（migrate 用）
 npm run db:generate
-npm run db:migrate -- --name init
+npm run db:migrate
 
-# 4. 在 Supabase SQL Editor 執行 auth trigger 與 RLS policies
-# 複製 supabase/seed.sql 內容貼上執行
+# 4. Migration already applies the auth trigger and RLS policies.
+# For databases created before migrations existed, run supabase/seed.sql once in Supabase SQL Editor.
 
 # 5. 啟動開發伺服器
 npm run dev
