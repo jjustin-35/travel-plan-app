@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { generateTrip } from "@/lib/services/ai-generation.service";
-import { getTripById, createTripWithDays } from "@/lib/db/trip.repository";
-import { TripInputSchema } from "@/lib/schemas/trip.schema";
-import { prisma } from "@/lib/db/prisma";
 import { ZodError } from "zod";
 
+import { createClient } from "@/lib/supabase/server";
+import { generateTrip } from "@/lib/services/ai-generation.service";
+import { getTripById } from "@/lib/db/trip.repository";
+import { TripInputSchema } from "@/lib/schemas/trip.schema";
+import { prisma } from "@/lib/db/prisma";
+import { withTimeout } from "@/lib/async-timeout";
+
 type RouteParams = { params: Promise<{ id: string }> };
+const DEFAULT_REGENERATE_TIMEOUT_MS = 50_000;
+
+function getRegenerateTimeoutMs(): number {
+  const configured = Number(process.env.REGENERATE_TRIP_TIMEOUT_MS);
+  return Number.isFinite(configured) && configured > 0
+    ? configured
+    : DEFAULT_REGENERATE_TIMEOUT_MS;
+}
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
@@ -50,7 +60,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   });
 
   try {
-    const aiResult = await generateTrip(input);
+    const aiResult = await withTimeout(
+      generateTrip(input),
+      getRegenerateTimeoutMs(),
+      "Trip regeneration timed out"
+    );
 
     await prisma.$transaction(async (tx) => {
       await tx.tripDay.deleteMany({ where: { tripId: id } });
