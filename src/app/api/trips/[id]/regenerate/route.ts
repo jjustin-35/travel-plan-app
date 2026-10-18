@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
+
 import { createClient } from "@/lib/supabase/server";
 import { generateTrip } from "@/lib/services/ai-generation.service";
-import { getTripById, createTripWithDays } from "@/lib/db/trip.repository";
+import { getTripById } from "@/lib/db/trip.repository";
 import { TripInputSchema } from "@/lib/schemas/trip.schema";
 import { prisma } from "@/lib/db/prisma";
-import { ZodError } from "zod";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -49,9 +50,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     data: { status: "generating" },
   });
 
+  let aiResult: Awaited<ReturnType<typeof generateTrip>>;
   try {
-    const aiResult = await generateTrip(input);
+    aiResult = await generateTrip(input);
+  } catch (err) {
+    await prisma.trip.update({
+      where: { id },
+      data: { status: "failed" },
+    });
+    console.error("POST regenerate error:", err);
+    return NextResponse.json({ error: "Regeneration failed" }, { status: 500 });
+  }
 
+  try {
     await prisma.$transaction(async (tx) => {
       await tx.tripDay.deleteMany({ where: { tripId: id } });
 
@@ -89,14 +100,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         },
       });
     });
-
-    const updated = await getTripById(id, user.id);
-    return NextResponse.json({ trip: updated });
   } catch (err) {
     await prisma.trip.update({
       where: { id },
       data: { status: "failed" },
     });
+    console.error("POST regenerate error:", err);
+    return NextResponse.json({ error: "Regeneration failed" }, { status: 500 });
+  }
+
+  try {
+    const updated = await getTripById(id, user.id);
+    return NextResponse.json({ trip: updated });
+  } catch (err) {
     console.error("POST regenerate error:", err);
     return NextResponse.json({ error: "Regeneration failed" }, { status: 500 });
   }
