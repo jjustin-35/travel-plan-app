@@ -2,13 +2,18 @@
 import "./load-env";
 
 import { Worker, type ConnectionOptions } from "bullmq";
-import { prisma } from "../src/lib/db/prisma";
 import { GoogleGenAI } from "@google/genai";
 import IORedis from "ioredis";
 import { ZodError } from "zod";
+import { prisma } from "../src/lib/db/prisma";
 import { TripResponseSchema } from "../src/lib/schemas/trip.schema";
 import type { TripGenerationJobData } from "../src/lib/queue/queue";
 import { buildCacheKey } from "../src/lib/cache-key";
+import {
+  markTripGenerationFailed,
+  saveTripResult,
+  tripExists,
+} from "../src/lib/worker/trip-persistence";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
@@ -104,50 +109,16 @@ async function generateTrip(input: JobData["input"]) {
   throw new Error("Failed to generate valid trip");
 }
 
-async function saveTripResult(tripId: string, aiResult: { trip: { title: string; days: Array<{ day: number; date: string; events: Array<{ id: string; title: string; location: string; description: string; category: string; event_time: string; duration_minutes: number; sort_order: number; lat: number; lng: number }> }> } }) {
-  await prisma.$transaction(async (tx) => {
-    await tx.tripDay.deleteMany({ where: { tripId } });
-    await tx.trip.update({
-      where: { id: tripId },
-      data: {
-        title: aiResult.trip.title,
-        status: "ready",
-        version: { increment: 1 },
-      },
-    });
-
-    for (const day of aiResult.trip.days) {
-      const tripDay = await tx.tripDay.create({
-        data: {
-          tripId,
-          dayNumber: day.day,
-          date: new Date(day.date),
-        },
-      });
-      await tx.tripEvent.createMany({
-        data: day.events.map((e) => ({
-          id: e.id,
-          tripDayId: tripDay.id,
-          title: e.title,
-          location: e.location,
-          description: e.description,
-          category: e.category,
-          eventTime: e.event_time,
-          durationMinutes: e.duration_minutes,
-          sortOrder: e.sort_order,
-          lat: e.lat,
-          lng: e.lng,
-        })),
-      });
-    }
-  });
-}
-
 const worker = new Worker<JobData>(
   "trip-generation",
   async (job) => {
     const { tripId, userId, input } = job.data;
     console.log(`[Worker] Processing job ${job.id} for trip ${tripId}`);
+
+    if (!(await tripExists(tripId))) {
+      console.log(`[Worker] Trip ${tripId} no longer exists; skipping job ${job.id}`);
+      return;
+    }
 
     const cacheKey = buildCacheKey(userId, input);
 
@@ -156,7 +127,10 @@ const worker = new Worker<JobData>(
     if (cached) {
       console.log(`[Worker] Cache hit for trip ${tripId}`);
       const aiResult = TripResponseSchema.parse(JSON.parse(cached));
-      await saveTripResult(tripId, aiResult);
+      const saved = await saveTripResult(tripId, aiResult);
+      if (!saved) {
+        console.log(`[Worker] Trip ${tripId} was deleted before save; skipping job ${job.id}`);
+      }
       return;
     }
 
@@ -167,7 +141,11 @@ const worker = new Worker<JobData>(
     await redis.set(cacheKey, JSON.stringify(aiResult), "EX", 600);
 
     // Save to DB (Supabase Realtime will auto-push to frontend)
-    await saveTripResult(tripId, aiResult);
+    const saved = await saveTripResult(tripId, aiResult);
+    if (!saved) {
+      console.log(`[Worker] Trip ${tripId} was deleted before save; skipping job ${job.id}`);
+      return;
+    }
 
     // Update AI job status
     await prisma.aIGenerationJob.updateMany({
@@ -188,14 +166,14 @@ const worker = new Worker<JobData>(
 worker.on("failed", async (job, err) => {
   console.error(`[Worker] Job ${job?.id} failed:`, err.message);
   if (job?.data.tripId) {
-    await prisma.trip.update({
-      where: { id: job.data.tripId },
-      data: { status: "failed" },
-    });
-    await prisma.aIGenerationJob.updateMany({
-      where: { tripId: job.data.tripId, status: "processing" },
-      data: { status: "failed", errorMessage: err.message },
-    });
+    try {
+      await markTripGenerationFailed(job.data.tripId, err.message);
+    } catch (updateErr) {
+      console.error(
+        `[Worker] Failed to record failure for trip ${job.data.tripId}:`,
+        updateErr
+      );
+    }
   }
 });
 
