@@ -191,6 +191,23 @@ export default function TripDetailPage() {
     setAddingForDay(dayNumber);
   }, []);
 
+  const startRegeneration = useCallback(async () => {
+    queryClient.setQueryData<Trip>(["trip", id], (current) =>
+      current ? { ...current, status: "generating" } : current
+    );
+
+    try {
+      const res = await fetch(`/api/trips/${id}/regenerate`, { method: "POST" });
+      if (!res.ok) {
+        console.error("Failed to regenerate trip", await res.text());
+      }
+    } catch (error) {
+      console.error("Failed to regenerate trip", error);
+    } finally {
+      queryClient.invalidateQueries({ queryKey: ["trip", id] });
+    }
+  }, [id, queryClient]);
+
   const handleSaveEvent = useCallback(
     (saved: TripEvent) => {
       const isNew = addingForDay !== null;
@@ -243,10 +260,7 @@ export default function TripDetailPage() {
         <p className="font-semibold text-charcoal">行程生成失敗</p>
         <p className="text-sm text-muted mt-1">請點擊重新生成</p>
         <button
-          onClick={async () => {
-            await fetch(`/api/trips/${id}/regenerate`, { method: "POST" });
-            queryClient.invalidateQueries({ queryKey: ["trip", id] });
-          }}
+          onClick={startRegeneration}
           className="mt-4 bg-coral text-white px-6 py-2 rounded-full text-sm font-medium"
         >
           重新生成
@@ -301,10 +315,7 @@ export default function TripDetailPage() {
             <span className="text-xs text-muted animate-pulse px-1">儲存中…</span>
           )}
           <RippleButton
-            onClick={async () => {
-              await fetch(`/api/trips/${id}/regenerate`, { method: "POST" });
-              queryClient.invalidateQueries({ queryKey: ["trip", id] });
-            }}
+            onClick={startRegeneration}
             rippleColor="rgba(233,116,81,0.18)"
             className="flex h-10 w-10 items-center justify-center rounded-2xl border border-coral/30 bg-coral/5 text-coral hover:bg-coral/10 transition-colors"
             title="重新產生行程"
