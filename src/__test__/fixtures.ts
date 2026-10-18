@@ -33,9 +33,9 @@ export const validTripResponse = {
 export const validTripInput: TripInput = {
   destination: "東京",
   startDate: "2026-04-01",
-  endDate: "2026-04-05",
-  days: 5,
-  nights: 4,
+  endDate: "2026-04-01",
+  days: 1,
+  nights: 0,
   peopleCount: 2,
   tripType: "自由行",
   budgetRange: "中等",

@@ -1,6 +1,14 @@
 import { prisma } from "@/lib/db/prisma";
 import { TripResponse, TripInput } from "@/lib/schemas/trip.schema";
 
+export async function ensureUserExists(userId: string) {
+  await prisma.user.upsert({
+    where: { id: userId },
+    update: {},
+    create: { id: userId },
+  });
+}
+
 export async function createTripWithDays(
   userId: string,
   input: TripInput,

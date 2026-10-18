@@ -6,7 +6,10 @@ import { prisma } from "../src/lib/db/prisma";
 import { GoogleGenAI } from "@google/genai";
 import IORedis from "ioredis";
 import { ZodError } from "zod";
-import { TripResponseSchema } from "../src/lib/schemas/trip.schema";
+import {
+  getTripResponseInputMismatch,
+  TripResponseSchema,
+} from "../src/lib/schemas/trip.schema";
 import type { TripGenerationJobData } from "../src/lib/queue/queue";
 import { buildCacheKey } from "../src/lib/cache-key";
 
@@ -95,7 +98,14 @@ async function generateTrip(input: JobData["input"]) {
 
     try {
       const parsed = JSON.parse(cleaned);
-      return TripResponseSchema.parse(parsed);
+      const validated = TripResponseSchema.parse(parsed);
+      const mismatch = getTripResponseInputMismatch(input, validated);
+      if (!mismatch) return validated;
+
+      if (attempt < MAX_RETRIES) continue;
+      throw new Error(
+        `AI returned an itinerary that does not match the requested duration: ${mismatch}`
+      );
     } catch (err) {
       if (err instanceof ZodError && attempt < MAX_RETRIES) continue;
       throw err;
