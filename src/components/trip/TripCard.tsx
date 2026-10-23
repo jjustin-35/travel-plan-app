@@ -2,9 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { formatDateRangeOnly } from "@/lib/date-format";
+import { deleteTrip, tripKeys } from "@/lib/api/trips";
 
 type Trip = {
   id: string;
@@ -43,6 +45,7 @@ function formatDateRange(start: string, end: string): string {
 
 export function TripCard({ trip }: { trip: Trip }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDeleteError, setShowDeleteError] = useState(false);
@@ -63,10 +66,9 @@ export function TripCard({ trip }: { trip: Trip }) {
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
     try {
-      const res = await fetch(`/api/trips/${trip.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete trip");
+      await deleteTrip(trip.id);
       setShowDeleteConfirm(false);
-      router.refresh();
+      await queryClient.invalidateQueries({ queryKey: tripKeys.all });
     } catch {
       setShowDeleteConfirm(false);
       setIsDeleting(false);

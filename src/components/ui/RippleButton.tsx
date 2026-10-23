@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 type RippleItem = {
@@ -49,7 +50,8 @@ function RippleLayer({ ripples, color }: { ripples: RippleItem[]; color: string 
 type RippleButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   rippleColor?: string;
   // to fix the passed position in style may not override the default position
-  position?: 'fixed' | 'absolute' | 'relative' | 'sticky' | 'static' | 'inherit' | 'initial' | 'unset';
+  position?: "fixed" | "absolute" | "relative" | "sticky" | "static" | "inherit" | "initial" | "unset";
+  href?: string;
 };
 
 export function RippleButton({
@@ -58,10 +60,29 @@ export function RippleButton({
   className = "",
   onClick,
   style,
-  position = 'relative',
+  position = "relative",
+  href,
   ...rest
 }: RippleButtonProps) {
   const { ripples, spawn } = useRipples();
+  const sharedClassName = `${position} overflow-hidden ${className}`;
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className={sharedClassName}
+        style={style}
+        onClick={(e) => {
+          spawn(e);
+          onClick?.(e as unknown as React.MouseEvent<HTMLButtonElement>);
+        }}
+      >
+        {children}
+        <RippleLayer ripples={ripples} color={rippleColor} />
+      </Link>
+    );
+  }
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     spawn(e);
@@ -71,8 +92,9 @@ export function RippleButton({
   return (
     <button
       {...rest}
-      className={`${position} overflow-hidden ${className}`}
+      className={sharedClassName}
       onClick={handleClick}
+      style={style}
     >
       {children}
       <RippleLayer ripples={ripples} color={rippleColor} />

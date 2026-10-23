@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { generateTrip } from "@/lib/services/ai-generation.service";
-import { getTripById, createTripWithDays } from "@/lib/db/trip.repository";
+import { getTripById } from "@/lib/db/trip.repository";
 import { TripInputSchema } from "@/lib/schemas/trip.schema";
 import { prisma } from "@/lib/db/prisma";
 import { ZodError } from "zod";
@@ -10,8 +10,7 @@ type RouteParams = { params: Promise<{ id: string }> };
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const trip = await getTripById(id, user.id);

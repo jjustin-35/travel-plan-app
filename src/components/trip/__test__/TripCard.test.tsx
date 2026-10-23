@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TripCard } from "@/components/trip/TripCard";
+import { tripKeys } from "@/lib/api/trips";
 
 const mockPush = vi.fn();
 const mockRefresh = vi.fn();
@@ -24,17 +26,36 @@ const sampleTrip = {
   status: "ready",
 };
 
+function renderCard(trip = sampleTrip) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+  const view = render(
+    <QueryClientProvider client={queryClient}>
+      <TripCard trip={trip} />
+    </QueryClientProvider>
+  );
+  return { ...view, invalidateSpy };
+}
+
 describe("TripCard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubGlobal("fetch", vi.fn(() =>
-      Promise.resolve({ ok: true } as Response)
-    ));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: async () => ({}),
+        } as Response)
+      )
+    );
   });
 
   it("renders trip summary and opens detail page on click", async () => {
     const user = userEvent.setup();
-    render(<TripCard trip={sampleTrip} />);
+    renderCard();
     expect(screen.getByText("東京五日遊")).toBeInTheDocument();
     expect(screen.getByText("東京")).toBeInTheDocument();
     expect(screen.getByText("👥 2 人")).toBeInTheDocument();
@@ -45,27 +66,23 @@ describe("TripCard", () => {
   });
 
   it("shows destination emoji for known cities", () => {
-    render(<TripCard trip={sampleTrip} />);
+    renderCard();
     expect(screen.getByText("🗼")).toBeInTheDocument();
   });
 
   it("shows generating badge when status is generating", () => {
-    render(
-      <TripCard trip={{ ...sampleTrip, status: "generating" }} />
-    );
+    renderCard({ ...sampleTrip, status: "generating" });
     expect(screen.getByText("規劃中")).toBeInTheDocument();
   });
 
   it("uses fallback emoji for unknown destination", () => {
-    render(
-      <TripCard trip={{ ...sampleTrip, destination: "冰島" }} />
-    );
+    renderCard({ ...sampleTrip, destination: "冰島" });
     expect(screen.getByText("✈️")).toBeInTheDocument();
   });
 
   it("deletes trip after confirmation", async () => {
     const user = userEvent.setup();
-    render(<TripCard trip={sampleTrip} />);
+    const { invalidateSpy } = renderCard();
 
     await user.click(screen.getByRole("button", { name: "刪除行程" }));
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
@@ -73,16 +90,19 @@ describe("TripCard", () => {
 
     await user.click(screen.getByRole("button", { name: "刪除" }));
 
-    expect(fetch).toHaveBeenCalledWith("/api/trips/trip-1", {
-      method: "DELETE",
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith("/api/trips/trip-1", {
+        method: "DELETE",
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: tripKeys.all });
     });
-    expect(mockRefresh).toHaveBeenCalled();
+    expect(mockRefresh).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
   });
 
   it("does not delete when confirmation is cancelled", async () => {
     const user = userEvent.setup();
-    render(<TripCard trip={sampleTrip} />);
+    renderCard();
 
     await user.click(screen.getByRole("button", { name: "刪除行程" }));
     await user.click(screen.getByRole("button", { name: "取消" }));
