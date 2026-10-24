@@ -64,4 +64,40 @@ describe("createKeyedDebouncer", () => {
     expect(fn1).not.toHaveBeenCalled();
     expect(fn2).toHaveBeenCalledTimes(1);
   });
+
+  it("flush immediately invokes all pending calls once", () => {
+    const fn1 = vi.fn();
+    const fn2 = vi.fn();
+    const debouncer = createKeyedDebouncer(800);
+
+    debouncer.schedule("day-1", fn1);
+    debouncer.schedule("day-2", fn2);
+    debouncer.flush();
+
+    expect(fn1).toHaveBeenCalledTimes(1);
+    expect(fn2).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(800);
+
+    expect(fn1).toHaveBeenCalledTimes(1);
+    expect(fn2).toHaveBeenCalledTimes(1);
+  });
+
+  it("flush(key) only invokes that key", () => {
+    const fn1 = vi.fn();
+    const fn2 = vi.fn();
+    const debouncer = createKeyedDebouncer(800);
+
+    debouncer.schedule("day-1", fn1);
+    debouncer.schedule("day-2", fn2);
+    debouncer.flush("day-1");
+
+    expect(fn1).toHaveBeenCalledTimes(1);
+    expect(fn2).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(800);
+
+    expect(fn1).toHaveBeenCalledTimes(1);
+    expect(fn2).toHaveBeenCalledTimes(1);
+  });
 });

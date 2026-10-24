@@ -58,6 +58,7 @@ export default function TripDetailPage() {
   const localDaysRef = useRef<TripDay[]>([]);
   const tripVersionRef = useRef(1);
   const batchDebouncerRef = useRef(createKeyedDebouncer(800));
+  const isMountedRef = useRef(true);
 
   const { data: trip, isLoading, isError } = useQuery({
     queryKey: tripKeys.detail(id),
@@ -110,8 +111,12 @@ export default function TripDetailPage() {
   }, [id, queryClient]);
 
   useEffect(() => {
+    isMountedRef.current = true;
     const debouncer = batchDebouncerRef.current;
-    return () => debouncer.cancel();
+    return () => {
+      isMountedRef.current = false;
+      debouncer.flush();
+    };
   }, []);
 
   /** Debounced batch update for a given day (independent timer per dayId) */
@@ -121,7 +126,7 @@ export default function TripDetailPage() {
         const day = localDaysRef.current.find((d) => d.id === dayId);
         if (!day) return;
 
-        setIsSaving(true);
+        if (isMountedRef.current) setIsSaving(true);
         try {
           const result = await patchTrip(
             id,
@@ -140,7 +145,7 @@ export default function TripDetailPage() {
         } catch (error) {
           console.error(error);
         } finally {
-          setIsSaving(false);
+          if (isMountedRef.current) setIsSaving(false);
         }
       });
     },
