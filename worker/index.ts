@@ -30,12 +30,12 @@ const BASE_PROMPT_TEMPLATE = `You are an expert travel planner. Generate a compl
 
 Traveler Information:
 - Destination: {{destination}}
-- Duration: {{days}} days {{nights}} nights ({{start_date}} to {{end_date}})
-- Travelers: {{people_count}} people
-- Trip type: {{trip_type}}
-- Budget: {{budget_range}}
-- Preferred styles: {{preferred_styles}}
-- Special requirements: {{special_requirements}}
+- Duration: {{days}} days {{nights}} nights ({{startDate}} to {{endDate}})
+- Travelers: {{peopleCount}} people
+- Trip type: {{tripType}}
+- Budget: {{budgetRange}}
+- Preferred styles: {{preferredStyles}}
+- Special requirements: {{specialRequirements}}
 
 Generate 3-8 events per day. Include meals. All text in Traditional Chinese (繁體中文).
 
@@ -66,18 +66,20 @@ Respond ONLY with valid JSON:
   }
 }`;
 
+const insertPlaceholders = <T extends Record<string, string | number | string[] | undefined>>(template: string, input: T) => {
+  return Object.entries(input).reduce((acc, [key, value]) => {
+    return acc.replace(`{{${key}}}`, String(value));
+  }, template);
+};
+
 async function generateTrip(input: JobData["input"]) {
-  const prompt = BASE_PROMPT_TEMPLATE
-    .replace("{{destination}}", input.destination)
-    .replace("{{days}}", String(input.days))
-    .replace("{{nights}}", String(input.nights))
-    .replace("{{start_date}}", input.startDate)
-    .replace("{{end_date}}", input.endDate)
-    .replace("{{people_count}}", String(input.peopleCount))
-    .replace("{{trip_type}}", input.tripType)
-    .replace("{{budget_range}}", input.budgetRange ?? "Not specified")
-    .replace("{{preferred_styles}}", input.preferredStyles?.join(", ") ?? "Not specified")
-    .replace("{{special_requirements}}", input.specialRequirements ?? "None");
+  const insertInput = {
+    ...input,
+    budgetRange: input.budgetRange ?? "Not specified",
+    preferredStyles: input.preferredStyles?.join(", ") ?? "Not specified",
+    specialRequirements: input.specialRequirements ?? "None",
+  };
+  const prompt = insertPlaceholders(BASE_PROMPT_TEMPLATE, insertInput);
 
   const MAX_RETRIES = 2;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
