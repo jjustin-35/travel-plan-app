@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { generateAlternatives } from "@/lib/services/ai-generation.service";
 import { getTripById } from "@/lib/db/trip.repository";
 import { TripEventSchema } from "@/lib/schemas/trip.schema";
@@ -17,8 +17,7 @@ type RouteParams = { params: Promise<{ id: string; eventId: string }> };
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const { id, eventId } = await params;
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const trip = await getTripById(id, user.id);

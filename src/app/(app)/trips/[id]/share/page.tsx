@@ -4,14 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { PdfDownloadButton } from "@/components/trip/PdfDownloadButton";
-
-type ShareLink = {
-  id: string;
-  shareToken: string;
-  permission: string;
-  createdAt: string;
-  isActive: boolean;
-};
+import {
+  createShare,
+  deleteShare,
+  getTrip,
+  listShares,
+  type TripShareLink,
+} from "@/lib/api/trips";
 
 type Trip = {
   id: string;
@@ -40,32 +39,39 @@ type Trip = {
 
 export default function ShareManagePage() {
   const { id } = useParams<{ id: string }>();
-  const [shares, setShares] = useState<ShareLink[]>([]);
+  const [shares, setShares] = useState<TripShareLink[]>([]);
   const [trip, setTrip] = useState<Trip | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      fetch(`/api/trips/${id}/shares`).then((r) => r.json()),
-      fetch(`/api/trips/${id}`).then((r) => r.json()),
-    ]).then(([shareData, tripData]) => {
-      setShares(shareData.shares ?? []);
-      setTrip(tripData.trip ?? null);
-    });
+    Promise.all([listShares(id), getTrip<Trip>(id)])
+      .then(([shareList, tripData]) => {
+        setShares(shareList);
+        setTrip(tripData);
+      })
+      .catch(console.error);
   }, [id]);
 
-  const createShare = async () => {
+  const handleCreateShare = async () => {
     setIsCreating(true);
-    const res = await fetch(`/api/trips/${id}/shares`, { method: "POST" });
-    const data = await res.json();
-    if (data.share) setShares((prev) => [data.share, ...prev]);
-    setIsCreating(false);
+    try {
+      const share = await createShare(id);
+      setShares((prev) => [share, ...prev]);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
-  const deleteShare = async (shareId: string) => {
-    await fetch(`/api/trips/${id}/shares/${shareId}`, { method: "DELETE" });
-    setShares((prev) => prev.filter((s) => s.id !== shareId));
+  const handleDeleteShare = async (shareId: string) => {
+    try {
+      await deleteShare(id, shareId);
+      setShares((prev) => prev.filter((s) => s.id !== shareId));
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const copyLink = (token: string) => {
@@ -113,7 +119,7 @@ export default function ShareManagePage() {
               <p className="text-xs text-muted mt-0.5">任何有連結的人可唯讀查看行程</p>
             </div>
             <button
-              onClick={createShare}
+              onClick={handleCreateShare}
               disabled={isCreating}
               className="text-xs font-semibold text-white bg-coral px-3 py-1.5 rounded-full disabled:opacity-50 hover:bg-wood transition-colors"
             >
@@ -151,7 +157,7 @@ export default function ShareManagePage() {
                       {isCopied ? "已複製 ✓" : "複製"}
                     </button>
                     <button
-                      onClick={() => deleteShare(share.id)}
+                      onClick={() => handleDeleteShare(share.id)}
                       className="text-xs text-red-400 hover:text-red-600 transition-colors flex-shrink-0"
                     >
                       ✕

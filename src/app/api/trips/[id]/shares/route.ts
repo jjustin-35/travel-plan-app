@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient as createServerClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { prisma } from "@/lib/db/prisma";
 import crypto from "crypto";
 
@@ -8,10 +8,7 @@ type Params = { params: Promise<{ id: string }> };
 // GET /api/trips/[id]/shares — list share links for this trip
 export async function GET(_req: Request, { params }: Params) {
   const { id: tripId } = await params;
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const shares = await prisma.tripShare.findMany({
@@ -32,10 +29,7 @@ export async function GET(_req: Request, { params }: Params) {
 // POST /api/trips/[id]/shares — create a new share link
 export async function POST(_req: Request, { params }: Params) {
   const { id: tripId } = await params;
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const trip = await prisma.trip.findFirst({ where: { id: tripId, userId: user.id } });

@@ -1,12 +1,15 @@
 "use client";
 
 import { useOnboardingStore } from "@/stores/onboarding.store";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ApiError, createTrip, tripKeys } from "@/lib/api/trips";
 
 export function SummaryPage() {
   const store = useOnboardingStore();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -43,19 +46,10 @@ export function SummaryPage() {
     setError("");
     try {
       const input = store.toTripInput();
-      const res = await fetch("/api/trips", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
+      const data = await createTrip(input);
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "送出失敗，請稍後重試");
-      }
-
-      const data = await res.json();
       store.reset();
+      await queryClient.invalidateQueries({ queryKey: tripKeys.all });
 
       if (data.trip?.id) {
         router.push(`/trips/${data.trip.id}`);
@@ -64,7 +58,13 @@ export function SummaryPage() {
 
       throw new Error("伺服器回應格式不正確，請稍後重試");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "發生未知錯誤");
+      const message =
+        err instanceof ApiError
+          ? err.message || "送出失敗，請稍後重試"
+          : err instanceof Error
+            ? err.message
+            : "發生未知錯誤";
+      setError(message);
       setIsLoading(false);
     }
   };

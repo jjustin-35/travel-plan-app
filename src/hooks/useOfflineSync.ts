@@ -10,6 +10,7 @@ import {
   CachedTrip,
 } from "@/lib/db/idb";
 import { buildTripPatchBody } from "@/lib/trip-patch";
+import { patchTrip } from "@/lib/api/trips";
 
 type TripEvent = {
   id: string;
@@ -119,18 +120,15 @@ export function useOfflineSync({
               const dayNumber = sync.dayNumber ?? day?.dayNumber;
               if (dayNumber === undefined) return;
 
-              const res = await fetch(`/api/trips/${sync.tripId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(
-                  buildTripPatchBody(
-                    cached?.version ?? tripVersionRef.current,
-                    dayNumber,
-                    sync.events
-                  )
-                ),
-              });
-              if (res.ok) {
+              const result = await patchTrip(
+                sync.tripId,
+                buildTripPatchBody(
+                  cached?.version ?? tripVersionRef.current,
+                  dayNumber,
+                  sync.events
+                )
+              );
+              if ("ok" in result) {
                 tripVersionRef.current += 1;
                 await resolveSync(sync.tripId, sync.dayId);
               }

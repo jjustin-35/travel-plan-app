@@ -14,6 +14,8 @@ import { ArrowLeft, RefreshCw, Share2, WifiOff, RefreshCcw } from "lucide-react"
 import { createClient } from "@/lib/supabase/client";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { buildTripPatchBody } from "@/lib/trip-patch";
+import { getTrip, patchTrip, regenerateTrip, tripKeys } from "@/lib/api/trips";
+import { createKeyedDebouncer } from "@/lib/debounce";
 
 type TripEvent = {
   id: string;
@@ -44,27 +46,6 @@ type Trip = {
   days: TripDay[];
 };
 
-async function fetchTrip(id: string): Promise<Trip> {
-  const res = await fetch(`/api/trips/${id}`);
-  if (!res.ok) throw new Error("Failed to fetch trip");
-  const data = await res.json();
-  return data.trip;
-}
-
-async function batchUpdateEvents(
-  tripId: string,
-  clientVersion: number,
-  dayNumber: number,
-  events: TripEvent[]
-) {
-  const res = await fetch(`/api/trips/${tripId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(buildTripPatchBody(clientVersion, dayNumber, events)),
-  });
-  return res;
-}
-
 export default function TripDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -75,13 +56,13 @@ export default function TripDetailPage() {
   const [addingForDay, setAddingForDay] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const debounceTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const localDaysRef = useRef<TripDay[]>([]);
   const tripVersionRef = useRef(1);
+  const batchDebouncerRef = useRef(createKeyedDebouncer(800));
 
   const { data: trip, isLoading, isError } = useQuery({
-    queryKey: ["trip", id],
-    queryFn: () => fetchTrip(id),
+    queryKey: tripKeys.detail(id),
+    queryFn: () => getTrip<Trip>(id),
     refetchInterval: (query) =>
       query.state.data?.status === "generating" ? 3000 : false,
   });
@@ -120,7 +101,7 @@ export default function TripDetailPage() {
           filter: `id=eq.${id}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["trip", id] });
+          queryClient.invalidateQueries({ queryKey: tripKeys.detail(id) });
         }
       )
       .subscribe();
@@ -129,37 +110,40 @@ export default function TripDetailPage() {
     };
   }, [id, queryClient]);
 
-  /** Debounced batch update for a given day */
+  useEffect(() => {
+    const debouncer = batchDebouncerRef.current;
+    return () => debouncer.cancel();
+  }, []);
+
+  /** Debounced batch update for a given day (independent timer per dayId) */
   const scheduleBatchUpdate = useCallback(
     (dayId: string, events: TripEvent[]) => {
-      const existing = debounceTimers.current.get(dayId);
-      if (existing) clearTimeout(existing);
-      const timer = setTimeout(async () => {
-        debounceTimers.current.delete(dayId);
+      batchDebouncerRef.current.schedule(dayId, async () => {
         const day = localDaysRef.current.find((d) => d.id === dayId);
         if (!day) return;
 
         setIsSaving(true);
         try {
-          const res = await batchUpdateEvents(
+          const result = await patchTrip(
             id,
-            tripVersionRef.current,
-            day.dayNumber,
-            events
+            buildTripPatchBody(
+              tripVersionRef.current,
+              day.dayNumber,
+              events
+            )
           );
-          if (res.ok) {
+          if ("ok" in result) {
             tripVersionRef.current += 1;
-            queryClient.invalidateQueries({ queryKey: ["trip", id] });
+            queryClient.invalidateQueries({ queryKey: tripKeys.detail(id) });
           } else {
-            console.error("Failed to save trip events", await res.text());
+            console.error("Failed to save trip events: conflict", result);
           }
         } catch (error) {
           console.error(error);
         } finally {
           setIsSaving(false);
         }
-      }, 800);
-      debounceTimers.current.set(dayId, timer);
+      });
     },
     [id, queryClient]
   );
@@ -246,8 +230,8 @@ export default function TripDetailPage() {
         <p className="text-sm text-muted mt-1">請點擊重新生成</p>
         <button
           onClick={async () => {
-            await fetch(`/api/trips/${id}/regenerate`, { method: "POST" });
-            queryClient.invalidateQueries({ queryKey: ["trip", id] });
+            await regenerateTrip(id);
+            queryClient.invalidateQueries({ queryKey: tripKeys.detail(id) });
           }}
           className="mt-4 bg-coral text-white px-6 py-2 rounded-full text-sm font-medium"
         >
@@ -283,13 +267,14 @@ export default function TripDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
-          <Link
+          <RippleButton
             href="/"
             aria-label="返回首頁"
-            className="relative overflow-hidden flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border text-charcoal hover:bg-butter transition-colors"
+            rippleColor="rgba(160,120,80,0.15)"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-border text-charcoal hover:bg-butter transition-colors"
           >
             <ArrowLeft size={18} />
-          </Link>
+          </RippleButton>
           <div className="min-w-0">
             <h1 className="font-extrabold text-charcoal text-sm leading-tight truncate">
               {trip.title}
@@ -304,8 +289,8 @@ export default function TripDetailPage() {
           )}
           <RippleButton
             onClick={async () => {
-              await fetch(`/api/trips/${id}/regenerate`, { method: "POST" });
-              queryClient.invalidateQueries({ queryKey: ["trip", id] });
+              await regenerateTrip(id);
+              queryClient.invalidateQueries({ queryKey: tripKeys.detail(id) });
             }}
             rippleColor="rgba(233,116,81,0.18)"
             className="flex h-10 w-10 items-center justify-center rounded-2xl border border-coral/30 bg-coral/5 text-coral hover:bg-coral/10 transition-colors"
@@ -313,13 +298,14 @@ export default function TripDetailPage() {
           >
             <RefreshCw size={16} />
           </RippleButton>
-          <Link
+          <RippleButton
             href={`/trips/${id}/share`}
+            rippleColor="rgba(160,120,80,0.15)"
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-border text-muted hover:text-coral hover:bg-butter transition-colors"
             title="分享行程"
-            className="relative overflow-hidden flex h-10 w-10 items-center justify-center rounded-2xl border border-border text-muted hover:text-coral hover:bg-butter transition-colors"
           >
             <Share2 size={16} />
-          </Link>
+          </RippleButton>
         </div>
       </div>
 

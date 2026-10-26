@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { User, Map } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
 import { listTrips } from "@/lib/services/trip.service";
 import { TripCard } from "@/components/trip/TripCard";
 import { AddFab } from "@/components/ui/AddFab";
 import { TripListSkeleton } from "@/components/ui/skeletons";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 
 type UserMeta = {
   name?: string;
@@ -78,15 +78,13 @@ async function TripList({ userId }: { userId: string }) {
 }
 
 export default async function HomePage() {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  const claims = data?.claims;
+  const user = await getCurrentUser();
 
-  if (!claims?.sub) {
+  if (!user) {
     redirect("/login");
   }
 
-  const meta = (claims.user_metadata ?? {}) as UserMeta;
+  const meta = (user.user_metadata ?? {}) as UserMeta;
 
   return (
     <div className="flex flex-col min-h-screen pb-24">
@@ -113,7 +111,7 @@ export default async function HomePage() {
 
       <div className="px-6 flex flex-col gap-6 flex-1">
         <Suspense fallback={<TripListSkeleton count={2} />}>
-          <TripList userId={claims.sub} />
+          <TripList userId={user.id} />
         </Suspense>
       </div>
 

@@ -1,15 +1,14 @@
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
+  const user = await getCurrentUser();
 
-  if (!data?.claims) {
+  if (!user) {
     redirect("/login");
   }
 
