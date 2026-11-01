@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { User, Map } from "lucide-react";
-import { listTrips } from "@/lib/services/trip.service";
+import { getTripsByUser } from "@/lib/db/trip.repository";
 import { TripCard } from "@/components/trip/TripCard";
 import { AddFab } from "@/components/ui/AddFab";
 import { TripListSkeleton } from "@/components/ui/skeletons";
@@ -17,7 +17,7 @@ function toIsoDate(value: Date | string): string {
 }
 
 async function TripList({ userId }: { userId: string }) {
-  const trips = await listTrips(userId);
+  const trips = await getTripsByUser(userId);
   const now = new Date();
   const upcomingTrips = trips.filter((t) => new Date(t.endDate) >= now);
   const pastTrips = trips.filter((t) => new Date(t.endDate) < now);

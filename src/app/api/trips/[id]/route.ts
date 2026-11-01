@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { getTrip, patchTrip, deleteTrip } from "@/lib/services/trip.service";
+import { deleteTripById, getTripById, updateTripEvents } from "@/lib/db/trip.repository";
 import { z, ZodError } from "zod";
 
 const PatchBodySchema = z.object({
@@ -34,7 +34,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const trip = await getTrip(id, user.id);
+  const trip = await getTripById(id, user.id);
   if (!trip) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({ trip });
@@ -62,7 +62,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     throw err;
   }
 
-  const result = await patchTrip(
+  const result = await updateTripEvents(
     id,
     user.id,
     parsed.client_version,
@@ -99,6 +99,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  await deleteTrip(id, user.id);
+  await deleteTripById(id, user.id);
   return NextResponse.json({ success: true });
 }

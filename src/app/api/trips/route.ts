@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { listTrips } from "@/lib/services/trip.service";
+import { getTripsByUser } from "@/lib/db/trip.repository";
 import { TripInputSchema } from "@/lib/schemas/trip.schema";
 import { ZodError } from "zod";
 import { prisma } from "@/lib/db/prisma";
@@ -11,7 +11,7 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const trips = await listTrips(user.id);
+  const trips = await getTripsByUser(user.id);
   return NextResponse.json({ trips });
 }
 
