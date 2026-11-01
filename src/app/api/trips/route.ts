@@ -4,7 +4,6 @@ import { listTrips } from "@/lib/services/trip.service";
 import { TripInputSchema } from "@/lib/schemas/trip.schema";
 import { ZodError } from "zod";
 import { prisma } from "@/lib/db/prisma";
-import { randomUUID } from "crypto";
 
 const BULLMQ_ENABLED = process.env.REDIS_URL !== undefined && process.env.REDIS_URL !== "";
 
@@ -38,69 +37,30 @@ export async function POST(request: NextRequest) {
   }
 
   if (BULLMQ_ENABLED) {
-    // Async path: enqueue BullMQ job
-    const { getTripQueue } = await import("@/lib/queue/queue");
-    const idempotencyKey = randomUUID();
-
-    const { trip, job } = await prisma.$transaction(async (tx) => {
-      const createdTrip = await tx.trip.create({
-        data: {
-          userId: user.id,
-          title: `${input.destination} 行程`,
-          destination: input.destination,
-          peopleCount: input.peopleCount,
-          tripType: input.tripType,
-          startDate: new Date(input.startDate),
-          endDate: new Date(input.endDate),
-          status: "generating",
-        },
-      });
-
-      const createdJob = await tx.aIGenerationJob.create({
-        data: {
-          tripId: createdTrip.id,
-          userId: user.id,
-          idempotencyKey,
-          status: "pending",
-          promptInput: JSON.parse(JSON.stringify(input)),
-        },
-      });
-
-      return { trip: createdTrip, job: createdJob };
+    const trip = await prisma.trip.create({
+      data: {
+        userId: user.id,
+        title: `${input.destination} 行程`,
+        destination: input.destination,
+        peopleCount: input.peopleCount,
+        tripType: input.tripType,
+        startDate: new Date(input.startDate),
+        endDate: new Date(input.endDate),
+        status: "generating",
+      },
     });
 
     try {
-      await getTripQueue().add(
-        "generate-trip",
-        { tripId: trip.id, userId: user.id, input, idempotencyKey },
-        { jobId: idempotencyKey }
-      );
+      const { enqueueTripGeneration } = await import("@/lib/queue/enqueue");
+      const jobId = await enqueueTripGeneration(trip.id, user.id, input);
+      return NextResponse.json({ trip, jobId, async: true }, { status: 202 });
     } catch (err) {
-      await prisma.$transaction([
-        prisma.trip.update({
-          where: { id: trip.id },
-          data: { status: "failed" },
-        }),
-        prisma.aIGenerationJob.update({
-          where: { id: job.id },
-          data: {
-            status: "failed",
-            errorMessage:
-              err instanceof Error ? err.message : "Failed to enqueue generation job",
-          },
-        }),
-      ]);
       console.error("POST /api/trips queue error:", err);
       return NextResponse.json(
         { error: "Failed to start trip generation, please try again" },
         { status: 500 }
       );
     }
-
-    return NextResponse.json(
-      { trip, jobId: job.id, async: true },
-      { status: 202 }
-    );
   } else {
     // Sync path (no Redis): call Gemini directly
     const { createTrip } = await import("@/lib/services/trip.service");

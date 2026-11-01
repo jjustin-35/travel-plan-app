@@ -153,29 +153,22 @@ const worker = new Worker<JobData>(
 
     const cacheKey = buildCacheKey(userId, input);
 
-    // Check cache
-    const cached = await redis.get(cacheKey);
-    if (cached) {
-      console.log(`[Worker] Cache hit for trip ${tripId}`);
-      const aiResult = TripResponseSchema.parse(JSON.parse(cached));
-      await saveTripResult(tripId, aiResult);
-      return;
+    if (!job.data.bypassCache) {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        console.log(`[Worker] Cache hit for trip ${tripId}`);
+        const aiResult = TripResponseSchema.parse(JSON.parse(cached));
+        await saveTripResult(tripId, aiResult);
+        await markJobDone(job.data.idempotencyKey);
+        return;
+      }
     }
 
-    // Generate with Gemini
     const aiResult = await generateTrip(input);
 
-    // Cache result
     await redis.set(cacheKey, JSON.stringify(aiResult), "EX", 600);
-
-    // Save to DB (Supabase Realtime will auto-push to frontend)
     await saveTripResult(tripId, aiResult);
-
-    // Update AI job status
-    await prisma.aIGenerationJob.updateMany({
-      where: { tripId, status: "processing" },
-      data: { status: "done", completedAt: new Date() },
-    });
+    await markJobDone(job.data.idempotencyKey);
 
     console.log(`[Worker] Completed job ${job.id} for trip ${tripId}`);
   },
@@ -187,18 +180,27 @@ const worker = new Worker<JobData>(
   }
 );
 
+async function markJobDone(idempotencyKey: string) {
+  await prisma.aIGenerationJob.updateMany({
+    where: { idempotencyKey },
+    data: { status: "done", completedAt: new Date() },
+  });
+}
+
 worker.on("failed", async (job, err) => {
   console.error(`[Worker] Job ${job?.id} failed:`, err.message);
-  if (job?.data.tripId) {
-    await prisma.trip.update({
-      where: { id: job.data.tripId },
-      data: { status: "failed" },
-    });
-    await prisma.aIGenerationJob.updateMany({
-      where: { tripId: job.data.tripId, status: "processing" },
-      data: { status: "failed", errorMessage: err.message },
-    });
-  }
+  if (!job?.data.tripId) return;
+  const attempts = job.opts.attempts ?? 1;
+  if (job.attemptsMade < attempts) return;
+
+  await prisma.trip.update({
+    where: { id: job.data.tripId },
+    data: { status: "failed" },
+  });
+  await prisma.aIGenerationJob.updateMany({
+    where: { idempotencyKey: job.data.idempotencyKey },
+    data: { status: "failed", errorMessage: err.message },
+  });
 });
 
 worker.on("ready", () => {

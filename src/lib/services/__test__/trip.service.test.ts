@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   createTrip,
+  regenerateTrip,
   listTrips,
   getTrip,
   patchTrip,
@@ -10,6 +11,7 @@ import { validTripInput } from "@/__test__/fixtures";
 
 const mockGenerateTrip = vi.fn();
 const mockCreateTripWithDays = vi.fn();
+const mockReplaceTripFromAi = vi.fn();
 const mockGetTripsByUser = vi.fn();
 const mockGetTripById = vi.fn();
 const mockUpdateTripEvents = vi.fn();
@@ -21,6 +23,7 @@ vi.mock("@/lib/services/ai-generation.service", () => ({
 
 vi.mock("@/lib/db/trip.repository", () => ({
   createTripWithDays: (...args: unknown[]) => mockCreateTripWithDays(...args),
+  replaceTripFromAi: (...args: unknown[]) => mockReplaceTripFromAi(...args),
   getTripsByUser: (...args: unknown[]) => mockGetTripsByUser(...args),
   getTripById: (...args: unknown[]) => mockGetTripById(...args),
   updateTripEvents: (...args: unknown[]) => mockUpdateTripEvents(...args),
@@ -46,6 +49,20 @@ describe("trip.service", () => {
       validTripInput,
       aiResult
     );
+    expect(result).toEqual(savedTrip);
+  });
+
+  it("regenerateTrip generates a new itinerary and overwrites the existing trip", async () => {
+    const aiResult = { trip: { title: "東京五日遊", days: [] } };
+    const savedTrip = { id: "trip-1", title: "東京五日遊", version: 2 };
+    mockGenerateTrip.mockResolvedValue(aiResult);
+    mockGetTripById.mockResolvedValue(savedTrip);
+
+    const result = await regenerateTrip("user-1", "trip-1", validTripInput);
+
+    expect(mockGenerateTrip).toHaveBeenCalledWith(validTripInput);
+    expect(mockReplaceTripFromAi).toHaveBeenCalledWith("trip-1", aiResult);
+    expect(mockGetTripById).toHaveBeenCalledWith("trip-1", "user-1");
     expect(result).toEqual(savedTrip);
   });
 

@@ -52,6 +52,48 @@ export async function createTripWithDays(
   });
 }
 
+export async function replaceTripFromAi(tripId: string, aiResult: TripResponse) {
+  const { trip: aiTrip } = aiResult;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tripDay.deleteMany({ where: { tripId } });
+    await tx.trip.update({
+      where: { id: tripId },
+      data: {
+        title: aiTrip.title,
+        status: "ready",
+        version: { increment: 1 },
+      },
+    });
+
+    for (const day of aiTrip.days) {
+      const tripDay = await tx.tripDay.create({
+        data: {
+          tripId,
+          dayNumber: day.day,
+          date: new Date(day.date),
+        },
+      });
+
+      await tx.tripEvent.createMany({
+        data: day.events.map((event) => ({
+          id: event.id,
+          tripDayId: tripDay.id,
+          title: event.title,
+          location: event.location,
+          description: event.description,
+          category: event.category,
+          eventTime: event.event_time,
+          durationMinutes: event.duration_minutes,
+          sortOrder: event.sort_order,
+          lat: event.lat,
+          lng: event.lng,
+        })),
+      });
+    }
+  });
+}
+
 export async function getTripsByUser(userId: string) {
   return await prisma.trip.findMany({
     where: { userId },
