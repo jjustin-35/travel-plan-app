@@ -1,9 +1,12 @@
 /**
- * One-time helper: open a browser, complete Google login manually,
+ * One-time helper: open real Chrome, complete Google login manually,
  * then save storage state for authenticated E2E runs.
  *
- * Usage (with `npm run dev` already running optional):
- *   npx playwright test e2e/auth.setup.ts --project=chromium
+ * Uses channel "chrome" (not bundled Chromium) so Google is less likely
+ * to block the browser as automated / unsafe.
+ *
+ * Usage:
+ *   yarn test:e2e:auth
  *
  * Or set E2E_STORAGE_STATE to a custom path.
  */

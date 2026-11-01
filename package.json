@@ -11,7 +11,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:auth": "playwright test e2e/auth.setup.ts --headed",
+    "test:e2e:auth": "playwright test e2e/auth.setup.ts --project=auth-setup",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

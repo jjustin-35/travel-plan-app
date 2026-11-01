@@ -13,12 +13,8 @@ function createPool(): Pool {
     throw new Error("DATABASE_URL is not set");
   }
 
-  const isLocal =
-    connectionString.includes("localhost") ||
-    connectionString.includes("127.0.0.1");
-
   const ssl = (() => {
-    if (isLocal || process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false") {
+    if (process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false") {
       return { rejectUnauthorized: false };
     }
     if (process.env.DATABASE_SSL_CA) {

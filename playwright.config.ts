@@ -9,7 +9,6 @@ const hasAuthState = fs.existsSync(storageStatePath);
 
 export default defineConfig({
   testDir: "e2e",
-  testMatch: "**/*.spec.ts",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -23,8 +22,23 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
+    // Real Chrome: Google often blocks Playwright's bundled Chromium as "unsafe".
+    {
+      name: "auth-setup",
+      testMatch: /auth\.setup\.ts/,
+      timeout: 6 * 60_000,
+      use: {
+        ...devices["Desktop Chrome"],
+        channel: "chrome",
+        headless: false,
+        launchOptions: {
+          args: ["--disable-blink-features=AutomationControlled"],
+        },
+      },
+    },
     {
       name: "chromium",
+      testMatch: "**/*.spec.ts",
       use: {
         ...devices["Desktop Chrome"],
         ...(hasAuthState ? { storageState: storageStatePath } : {}),
