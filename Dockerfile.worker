@@ -1,0 +1,24 @@
+# BullMQ worker image for Vercel Daemons.
+# Build context is the repository root (see vercel.json daemons.bullmq-worker).
+FROM node:24-slim
+
+WORKDIR /app
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY prisma ./prisma
+COPY src ./src
+COPY worker ./worker
+COPY tsconfig.json ./
+
+RUN npx prisma generate
+
+ENV NODE_ENV=production
+
+# tsx resolves path aliases via worker/tsconfig.json (@/* → ../src/*).
+CMD ["npx", "tsx", "--tsconfig", "worker/tsconfig.json", "worker/index.ts"]

@@ -206,7 +206,9 @@ worker.on("ready", () => {
 });
 
 process.on("SIGTERM", async () => {
+  console.log("[Worker] SIGTERM received, draining...");
   await worker.close();
+  await redis.quit();
   await prisma.$disconnect();
   process.exit(0);
 });

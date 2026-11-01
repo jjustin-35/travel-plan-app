@@ -58,9 +58,9 @@ None（Gemini regenerate context block；見 `AI_Prompt_Design.md`）
 - Service overwrite increments version
 
 ### Scope summary
-- App: Next.js PWA (+ optional worker)
+- App: Next.js PWA (+ optional worker；production 見 `ai-trip-generation` 的 Vercel Daemon / Upstash 部署)
 - Key paths: `src/app/api/trips/[id]/regenerate/`, `src/lib/services/ai-generation.service.ts`, trip detail page
-
+- Related specs: [ai-trip-generation.md](./ai-trip-generation.md)
 ### Feature / behavior summary
 - 一鍵重產或依備註局部調整
 - 進行中鎖定手動編輯

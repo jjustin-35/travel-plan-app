@@ -59,38 +59,56 @@ lib/db/trip.repository.ts      → 所有 DB query
 **Vercel 專案結構：**
 
 ```
-Vercel 專案
-├── Next.js service        ← 前端 + API Routes
-└── BullMQ Worker          ← Vercel Daemon，Dockerfile 打包
+Vercel 專案（repository root）
+├── Next.js app（root）     ← 前端 + API Routes（Vercel Functions）
+├── worker/                 ← BullMQ worker 原始碼
+├── Dockerfile.worker       ← Daemon 映像定義（build context = repo root）
+└── vercel.json             ← daemons.bullmq-worker 設定
 
-Upstash（獨立服務）        ← Redis（Queue broker + Cache）
-Supabase（獨立服務）       ← DB + Auth + Realtime
+Upstash（獨立服務）         ← Redis（Queue broker + Cache）
+Supabase（獨立服務）        ← DB + Auth + Realtime
 ```
+
+> Worker 與 Next.js 共用 `src/lib`（Prisma、schema、queue types、cache key），因此 Daemon 以 repo root 為 build context（`root: "./"` + `Dockerfile.worker`），而非獨立 `workers/bullmq-worker/` 目錄。見 [Vercel：shared codebase layout](https://vercel.com/kb/guide/migrate-railway-workers-to-vercel-daemons)。
 
 **vercel.json 配置：**
 
 ```json
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "daemons": {
     "bullmq-worker": {
-      "root": "workers/bullmq-worker/",
-      "entrypoint": "Dockerfile",
-      "instances": { "iad1": 1 }
+      "root": "./",
+      "entrypoint": "Dockerfile.worker",
+      "instances": { "iad1": 1 },
+      "terminationGracePeriodSeconds": 60
     }
   }
 }
 ```
 
-**BullMQ Worker Dockerfile：**
+**BullMQ Worker Dockerfile（`Dockerfile.worker`）：**
 
 ```dockerfile
 FROM node:24-slim
 WORKDIR /app
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
-COPY . .
-CMD ["node", "worker.js"]
+RUN npm ci
+COPY prisma ./prisma
+COPY src ./src
+COPY worker ./worker
+COPY tsconfig.json ./
+RUN npx prisma generate
+ENV NODE_ENV=production
+CMD ["npx", "tsx", "--tsconfig", "worker/tsconfig.json", "worker/index.ts"]
 ```
+
+- Daemon 僅在 **production** 部署啟動（Public Beta 不支援 preview）
+- 本機：`npm run worker` / `npm run worker:dev`；或 `docker build -f Dockerfile.worker -t bullmq-worker .` 後以 `--env-file .env.local` 執行
+- `SIGTERM`：worker 關閉 BullMQ connection 與 Prisma 後退出；grace period 60s 對應 AI job 10–30s
 
 選型理由：
 - Vercel Daemons（Public Beta）原生支援 BullMQ Worker，以 Dockerfile 打包常駐 process，不受 Serverless Function 逾時限制

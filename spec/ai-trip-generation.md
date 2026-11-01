@@ -20,11 +20,14 @@
 - Claude Sonnet（PRD 原文；本專案已改 Gemini）
 - Bull Board dashboard 部署
 - 版本歷史 / snapshot
+- Preview 環境 Daemon（Vercel Daemons Public Beta 僅 production）
 
 ## Technical choice
 
 - `@google/genai`（Gemini）取代 PRD 的 Claude
 - BullMQ + Redis 可選（無 Redis 時走 sync path）
+- Production Redis：Upstash（serverless）；本機可用 Docker Redis 或 Upstash
+- Production Worker：Vercel Daemon（`bullmq-worker`），以 `Dockerfile.worker` 打包常駐 process
 
 ## Implementation
 
@@ -38,15 +41,18 @@
   - `src/app/api/trips/route.ts`, `src/app/api/jobs/[id]/route.ts`
   - `src/components/trip/LoadingAnimation.tsx`
   - `docs/AI_Prompt_Design.md`（prompt 來源）
+- Deploy artifacts:
+  - `vercel.json` — `daemons.bullmq-worker`（`root: "./"`, `entrypoint: Dockerfile.worker`, `iad1: 1`, grace 60s）
+  - `Dockerfile.worker` + `Dockerfile.worker.dockerignore` — repo-root build context（共用 `src/lib` + Prisma）
 
 ## Feature toggles, APIs, and permissions
 
-- Env: `GEMINI_API_KEY`, `GEMINI_MODEL` (optional), `REDIS_URL` (optional)
+- Env: `GEMINI_API_KEY`, `GEMINI_MODEL` (optional), `REDIS_URL` (optional; production = Upstash), `DATABASE_URL`（worker Prisma）
 - `POST /api/trips` — create + generate
 - `GET /api/jobs/:id` — job status fallback
 - Auth required for create
 - Supabase Realtime replication on `trips` (manual project setting) — *TBD* if enabled in all envs
-
+- Vercel Production 需同時具備 `REDIS_URL` + Daemon 實例，async path 才會真正消費 queue
 ## Public interface
 
 - `generateTrip(input: TripInput): Promise<TripResponse>`
@@ -74,18 +80,20 @@
 - LoadingAnimation renders progress copy
 
 ### Scope summary
-- App: Next.js API + optional Worker
-- Key paths: `src/lib/services/ai-generation.service.ts`, `src/lib/queue/`, `worker/`, `src/app/api/trips/`, `src/app/api/jobs/`
+- App: Next.js API + optional Worker（local `tsx` / production Vercel Daemon）
+- Key paths: `src/lib/services/ai-generation.service.ts`, `src/lib/queue/`, `worker/`, `src/app/api/trips/`, `src/app/api/jobs/`, `vercel.json`, `Dockerfile.worker`
 
 ### Feature / behavior summary
 - 問卷送出後 AI 產生完整行程
 - 有 Redis 時背景產生；無 Redis 時同步產生
 - 等待畫面為旅遊插畫風格
+- Production：Vercel 部署 Next.js + `bullmq-worker` Daemon；Upstash Redis 為 broker/cache
 
 ### Prerequisites
-- Local: [`npm run dev` → http://localhost:3000]；async 路徑另需 Redis + `npm run worker`
+- Local: [`npm run dev` → http://localhost:3000]；async 路徑另需 Redis（或 Upstash）+ `npm run worker`
+- Local container（可選）: `docker build -f Dockerfile.worker -t bullmq-worker .` → `docker run --env-file .env.local bullmq-worker`
+- Production: Vercel project env 含 `REDIS_URL`（Upstash）、`DATABASE_URL`、`GEMINI_API_KEY`；production deploy 後確認 Daemons 面板有 `bullmq-worker` instance
 - Auth / tenant / test data: QA 帳號 `justinsqa01@gmail.com`（已登入）；有效 `GEMINI_API_KEY`；*TBD* E2E 是否允許打真實 Gemini 或需 fixture
-
 ### E2E test cases
 
 #### TC-01 — 同步產生（無 Redis）

@@ -9,10 +9,10 @@
 - **Auth**: Supabase Auth (Google OAuth)
 - **DB**: Supabase PostgreSQL + Prisma v7 (`@prisma/adapter-pg`)
 - **AI**: Google Gemini (`@google/genai`)
-- **Queue**: BullMQ + Redis
+- **Queue**: BullMQ + Redis（production: Upstash；worker: Vercel Daemon）
 - **State**: React Query + Zustand
 - **PWA**: next-pwa + IndexedDB
-
+- **Deploy**: Vercel（Next.js + `bullmq-worker` Daemon via `Dockerfile.worker`）
 ## 快速開始
 
 ```bash
@@ -34,6 +34,16 @@ npm run db:migrate -- --name init
 
 # 5. 啟動開發伺服器
 npm run dev
+
+# 6.（可選）非同步 AI 產生：設定 REDIS_URL 後另開 worker
+npm run worker
+```
+
+Production 的 BullMQ worker 由 Vercel Daemon（`vercel.json` → `daemons.bullmq-worker`）以 `Dockerfile.worker` 部署；本機可用 Docker 驗證映像：
+
+```bash
+docker build -f Dockerfile.worker -t bullmq-worker .
+docker run --env-file .env.local bullmq-worker
 ```
 
 ## 開發文件
