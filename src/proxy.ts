@@ -25,9 +25,10 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Prefer getClaims() over getUser(): verifies JWT locally (JWKS) without an
+  // Auth-server round trip on every navigation / RSC request.
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
 
   const { pathname } = request.nextUrl;
 
@@ -35,13 +36,13 @@ export async function proxy(request: NextRequest) {
   const isPublicRoute = pathname.startsWith("/share");
   const isApiRoute = pathname.startsWith("/api");
 
-  if (!user && !isAuthRoute && !isPublicRoute && !isApiRoute) {
+  if (!claims && !isAuthRoute && !isPublicRoute && !isApiRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthRoute) {
+  if (claims && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

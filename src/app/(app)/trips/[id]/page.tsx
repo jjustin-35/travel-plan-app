@@ -9,6 +9,7 @@ import { LoadingAnimation } from "@/components/trip/LoadingAnimation";
 import { EditEventModal } from "@/components/trip/EditEventModal";
 import { RippleButton } from "@/components/ui/RippleButton";
 import { AddFab } from "@/components/ui/AddFab";
+import { TripDetailSkeleton } from "@/components/ui/skeletons";
 import { ArrowLeft, RefreshCw, Share2, WifiOff, RefreshCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
@@ -201,8 +202,12 @@ export default function TripDetailPage() {
     [localDays, addingForDay, activeDay, handleEventsChange]
   );
 
-  if (isLoading || trip?.status === "generating") {
-    return <LoadingAnimation destination={trip?.destination} />;
+  if (isLoading) {
+    return <TripDetailSkeleton />;
+  }
+
+  if (trip?.status === "generating") {
+    return <LoadingAnimation destination={trip.destination} />;
   }
 
   if (isError || !trip) {

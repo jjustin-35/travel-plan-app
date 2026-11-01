@@ -1,7 +1,7 @@
 "use client";
 
+import Link from "next/link";
 import { Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { RippleButton } from "@/components/ui/RippleButton";
 
 type AddFabProps = {
@@ -16,17 +16,22 @@ const fabClassName =
 const fabStyle = { boxShadow: "0 6px 18px rgba(233,116,81,0.40)" };
 
 export function AddFab({ onClick, href, title = "新增" }: AddFabProps) {
-  const router = useRouter();
-  const handleClick = () => {
-    if (href) {
-      router.push(href);
-    }
-    onClick?.();
-  };
+  if (href) {
+    return (
+      <Link
+        href={href}
+        title={title}
+        className={`fixed overflow-hidden ${fabClassName}`}
+        style={fabStyle}
+      >
+        <Plus size={18} strokeWidth={2.5} />
+      </Link>
+    );
+  }
 
   return (
     <RippleButton
-      onClick={handleClick}
+      onClick={onClick}
       position="fixed"
       className={fabClassName}
       style={fabStyle}

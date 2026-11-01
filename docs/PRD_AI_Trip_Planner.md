@@ -50,28 +50,53 @@ lib/db/trip.repository.ts      → 所有 DB query
 | AI | Claude Sonnet 4.5 | 同左 |
 | Local 儲存 | IndexedDB（idb） | SQLite（op-sqlite 或 WatermelonDB） |
 | Server DB | Supabase（PostgreSQL） | 同左 |
-| Cache | Redis（Zeabur 內建） | 同左 |
+| Cache | Redis（Upstash） | 同左 |
 | Queue | BullMQ | 同左 |
 | Real-time | Supabase Realtime | 同左 |
 | Frontend State | React Query（server state）+ Zustand（client UI state） | 同左 |
-| 部署 | Zeabur（Next.js + Worker + Redis 同一專案） | 同左 |
+| 部署 | Vercel（Next.js + BullMQ Worker via Daemon + Upstash Redis） | 同左 |
 
-**Zeabur 專案結構：**
+**Vercel 專案結構：**
 
 ```
-Zeabur 專案
+Vercel 專案
 ├── Next.js service        ← 前端 + API Routes
-├── BullMQ Worker service  ← Node.js 常駐 process
-└── Redis service          ← 內建，一鍵開啟
+└── BullMQ Worker          ← Vercel Daemon，Dockerfile 打包
 
-Supabase（獨立服務）       ← DB + Auth
+Upstash（獨立服務）        ← Redis（Queue broker + Cache）
+Supabase（獨立服務）       ← DB + Auth + Realtime
+```
+
+**vercel.json 配置：**
+
+```json
+{
+  "daemons": {
+    "bullmq-worker": {
+      "root": "workers/bullmq-worker/",
+      "entrypoint": "Dockerfile",
+      "instances": { "iad1": 1 }
+    }
+  }
+}
+```
+
+**BullMQ Worker Dockerfile：**
+
+```dockerfile
+FROM node:24-slim
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+COPY . .
+CMD ["node", "worker.js"]
 ```
 
 選型理由：
-- Dev Plan $5/月含 $5 credits，驗證階段月費幾乎為零
-- 一個平台管理 Next.js、Worker、Redis，環境變數共享，比多平台方案省力
-- 有亞洲節點，台灣使用者延遲低
-- 未來若需要擴展，可評估搬至 Vercel + 獨立 Worker 架構
+- Vercel Daemons（Public Beta）原生支援 BullMQ Worker，以 Dockerfile 打包常駐 process，不受 Serverless Function 逾時限制
+- Hobby 方案按 Active CPU 計費而非 uptime，Worker idle 時幾乎不消耗額度
+- Upstash 提供 serverless Redis，免費方案 10K cmd/day 足夠驗證階段使用，並與 Vercel 有官方整合可自動注入環境變數
+- Next.js 與 Worker 同在一個 Vercel 專案，環境變數共享，logging 集中管理
 
 ### 3.1 技術選型理由
 
