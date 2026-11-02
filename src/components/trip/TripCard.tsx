@@ -66,6 +66,7 @@ export function TripCard({ trip }: { trip: Trip }) {
       await deleteTrip(trip.id);
       setShowDeleteConfirm(false);
       await queryClient.invalidateQueries({ queryKey: tripKeys.all });
+      router.refresh();
     } catch {
       setShowDeleteConfirm(false);
       setIsDeleting(false);

@@ -110,7 +110,7 @@ describe("TripCard", () => {
       });
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: tripKeys.all });
     });
-    expect(mockRefresh).not.toHaveBeenCalled();
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
   });
 
   it("does not delete when confirmation is cancelled", async () => {
