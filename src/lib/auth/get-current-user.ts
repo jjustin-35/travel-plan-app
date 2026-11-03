@@ -8,22 +8,23 @@ export type CurrentUser = {
 };
 
 /**
- * Prefer getClaims() over getUser(): verifies JWT locally (JWKS) without an
- * Auth-server round trip. Deduplicates within a single React Server request
- * via React cache(); does not share cache across proxy / separate API requests.
+ * Deduplicates Supabase auth.getUser() within a single React Server request.
+ * getUser() validates against the Auth server, so server-side authorization
+ * respects revoked or invalidated sessions instead of trusting an unexpired JWT.
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  const claims = data?.claims;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!claims?.sub) {
+  if (!user) {
     return null;
   }
 
   return {
-    id: claims.sub,
-    email: claims.email,
-    user_metadata: (claims.user_metadata ?? {}) as Record<string, unknown>,
+    id: user.id,
+    email: user.email,
+    user_metadata: (user.user_metadata ?? {}) as Record<string, unknown>,
   };
 });
