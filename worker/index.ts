@@ -2,10 +2,12 @@
 import "./load-env";
 
 import { Worker, type ConnectionOptions } from "bullmq";
-import { prisma } from "../src/lib/db/prisma";
 import { GoogleGenAI } from "@google/genai";
 import IORedis from "ioredis";
 import { ZodError } from "zod";
+
+import { prisma } from "../src/lib/db/prisma";
+import { recoverPendingGenerationJobs } from "../src/lib/queue/enqueue";
 import { TripResponseSchema } from "../src/lib/schemas/trip.schema";
 import type { TripGenerationJobData } from "../src/lib/queue/queue";
 import { buildCacheKey } from "../src/lib/cache-key";
@@ -179,6 +181,16 @@ const worker = new Worker<JobData>(
     concurrency: 3,
   }
 );
+
+recoverPendingGenerationJobs()
+  .then((count) => {
+    if (count > 0) {
+      console.log(`[Worker] Recovered ${count} pending generation job(s)`);
+    }
+  })
+  .catch((err) => {
+    console.error("[Worker] Failed to recover pending generation jobs:", err);
+  });
 
 async function markJobDone(idempotencyKey: string) {
   await prisma.aIGenerationJob.updateMany({
