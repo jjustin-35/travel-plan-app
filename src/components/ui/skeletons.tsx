@@ -55,6 +55,48 @@ export function HomeSkeleton() {
   );
 }
 
+export function OnboardingSkeleton() {
+  return (
+    <div className="flex flex-col min-h-screen" aria-busy aria-label="載入中">
+      <div className="flex items-center justify-between px-6 pt-6 pb-2">
+        <Pulse className="h-8 w-16 rounded-xl" />
+        <Pulse className="h-4 w-8 rounded-xl" />
+      </div>
+
+      <div className="flex gap-1 px-6 pt-4">
+        {Array.from({ length: 7 }, (_, i) => (
+          <Pulse key={i} className="h-1 flex-1 rounded-full" />
+        ))}
+      </div>
+
+      <div className="px-6 pt-3 pb-1">
+        <Pulse className="h-4 w-12 rounded-xl" />
+      </div>
+
+      <div className="flex-1 px-6 pt-4 pb-4 flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <Pulse className="h-10 w-10 rounded-2xl" />
+          <Pulse className="h-8 w-28 rounded-xl" />
+          <Pulse className="h-4 w-28 rounded-xl" />
+        </div>
+        <Pulse className="h-14 w-full rounded-2xl" />
+        <div>
+          <Pulse className="h-4 w-16 mb-3 rounded-xl" />
+          <div className="grid grid-cols-2 gap-3">
+            {Array.from({ length: 4 }, (_, i) => (
+              <Pulse key={i} className="aspect-4/3 rounded-2xl" />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 pb-10 pt-2">
+        <Pulse className="h-14 w-full rounded-2xl" />
+      </div>
+    </div>
+  );
+}
+
 export function TripDetailSkeleton() {
   return (
     <div className="flex flex-col h-screen bg-cream" aria-busy aria-label="載入中">

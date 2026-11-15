@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
@@ -45,7 +44,6 @@ function formatDateRange(start: string, end: string): string {
 }
 
 export function TripCard({ trip }: { trip: Trip }) {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -64,12 +62,12 @@ export function TripCard({ trip }: { trip: Trip }) {
     setIsDeleting(true);
     try {
       await deleteTrip(trip.id);
-      setShowDeleteConfirm(false);
       await queryClient.invalidateQueries({ queryKey: tripKeys.all });
     } catch {
-      setShowDeleteConfirm(false);
       setIsDeleting(false);
       setShowDeleteError(true);
+    } finally {
+      setShowDeleteConfirm(false);
     }
   };
 
