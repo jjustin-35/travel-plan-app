@@ -5,7 +5,7 @@ let _connection: IORedis | null = null;
 
 export function getRedisConnection(): IORedis {
   if (!_connection) {
-    _connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
+    _connection = new IORedis(process.env.TRIP_REDIS_STORAGE_REDIS_URL ?? "redis://localhost:6379", {
       maxRetriesPerRequest: null,
     });
   }
@@ -13,13 +13,15 @@ export function getRedisConnection(): IORedis {
 }
 
 function getConnectionOptions() {
-  const url = process.env.REDIS_URL ?? "redis://localhost:6379";
+  const url = process.env.TRIP_REDIS_STORAGE_REDIS_URL ?? "redis://localhost:6379";
   const parsed = new URL(url);
   return {
     host: parsed.hostname,
     port: parseInt(parsed.port || "6379", 10),
+    username: parsed.username || undefined,
     password: parsed.password || undefined,
     maxRetriesPerRequest: null as unknown as undefined,
+    ...(parsed.protocol === "rediss:" ? { tls: {} } : {}),
   };
 }
 

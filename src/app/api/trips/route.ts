@@ -5,7 +5,7 @@ import { TripInputSchema } from "@/lib/schemas/trip.schema";
 import { ZodError } from "zod";
 import { prisma } from "@/lib/db/prisma";
 
-const BULLMQ_ENABLED = process.env.REDIS_URL !== undefined && process.env.REDIS_URL !== "";
+const BULLMQ_ENABLED = process.env.TRIP_REDIS_STORAGE_REDIS_URL !== undefined && process.env.TRIP_REDIS_STORAGE_REDIS_URL !== "";
 
 export async function GET() {
   const user = await getCurrentUser();

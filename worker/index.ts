@@ -20,7 +20,7 @@ function getGenAI(): GoogleGenAI {
   return genai;
 }
 
-const redis = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
+const redis = new IORedis(process.env.TRIP_REDIS_STORAGE_REDIS_URL ?? "redis://localhost:6379", {
   maxRetriesPerRequest: null,
 });
 

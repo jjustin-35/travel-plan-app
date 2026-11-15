@@ -9,8 +9,8 @@
 - 後端以英文 prompt、要求繁中內容，產生符合 Zod schema 的行程 JSON（每天約 3–8 節點）
 - AI 模型為 Google Gemini（`GEMINI_API_KEY` / `GEMINI_MODEL`）；**不以 PRD 的 Claude 為準**
 - Zod 驗證失敗時 service 內部重試（format correction）；rate limit 交外層重試/錯誤
-- `REDIS_URL` 有值：BullMQ 非同步產生，回傳 `202` + `jobId`；trip `status=generating` → `ready`/`failed`
-- `REDIS_URL` 空：同步呼叫 Gemini，`201` 回傳完整 trip
+- `TRIP_REDIS_STORAGE_REDIS_URL` 有值：BullMQ 非同步產生，回傳 `202` + `jobId`；trip `status=generating` → `ready`/`failed`
+- `TRIP_REDIS_STORAGE_REDIS_URL` 空：同步呼叫 Gemini，`201` 回傳完整 trip
 - 可選 Redis cache：相同 user + structured input hash 短 TTL 命中則不重打 AI
 - Frontend 訂閱 Supabase Realtime（trips 狀態）並以 `GET /api/jobs/:id` 為 fallback
 - 產生中顯示旅遊主題等待動畫（非制式 spinner）
@@ -47,7 +47,7 @@
 
 ## Feature toggles, APIs, and permissions
 
-- Env: `GEMINI_API_KEY`, `GEMINI_MODEL` (optional), `REDIS_URL` (optional; production = Upstash), `DATABASE_URL`（worker Prisma）
+- Env: `GEMINI_API_KEY`, `GEMINI_MODEL` (optional), `TRIP_REDIS_STORAGE_REDIS_URL` (optional; production = Upstash), `DATABASE_URL`（worker Prisma）
 - `POST /api/trips` — create + generate
 - `GET /api/jobs/:id` — job status fallback
 - Auth required for create
@@ -97,7 +97,7 @@
 ### E2E test cases
 
 #### TC-01 — 同步產生（無 Redis）
-1. 確認 `REDIS_URL` 為空
+1. 確認 `TRIP_REDIS_STORAGE_REDIS_URL` 為空
 2. 完成 onboarding 送出
 **Expected:** 一段時間後進入行程詳情，可見多日 Tab 與節點
 
