@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { getTripById } from "@/lib/db/trip.repository";
+import {
+  getLatestTripGenerationInput,
+  getTripById,
+} from "@/lib/db/trip.repository";
 import { prisma } from "@/lib/db/prisma";
 import { TripInputSchema } from "@/lib/schemas/trip.schema";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
-const BULLMQ_ENABLED = process.env.REDIS_URL !== undefined && process.env.REDIS_URL !== "";
+const BULLMQ_ENABLED =
+  process.env.TRIP_REDIS_STORAGE_REDIS_URL !== undefined &&
+  process.env.TRIP_REDIS_STORAGE_REDIS_URL !== "";
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
@@ -26,13 +31,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   let input;
   try {
+    const previousInput = await getLatestTripGenerationInput(id, user.id);
+    const dayCount =
+      existing.days.length > 0
+        ? existing.days.length
+        : previousInput?.days ?? existing.days.length;
+    const nightCount =
+      existing.days.length > 0
+        ? Math.max(existing.days.length - 1, 0)
+        : previousInput?.nights ?? Math.max(existing.days.length - 1, 0);
+
     input = TripInputSchema.parse(
       body.input ?? {
+        ...(previousInput ?? {}),
         destination: existing.destination,
         startDate: existing.startDate.toISOString().split("T")[0],
         endDate: existing.endDate.toISOString().split("T")[0],
-        days: existing.days.length,
-        nights: Math.max(existing.days.length - 1, 0),
+        days: dayCount,
+        nights: nightCount,
         peopleCount: existing.peopleCount,
         tripType: existing.tripType,
       }

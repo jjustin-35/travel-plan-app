@@ -1,5 +1,7 @@
+import { randomUUID } from "crypto";
+
 import { prisma } from "@/lib/db/prisma";
-import { TripResponse, TripInput } from "@/lib/schemas/trip.schema";
+import { TripResponse, TripInput, TripInputSchema } from "@/lib/schemas/trip.schema";
 
 export async function createTripWithDays(
   userId: string,
@@ -19,6 +21,17 @@ export async function createTripWithDays(
         startDate: new Date(input.startDate),
         endDate: new Date(input.endDate),
         status: "ready",
+      },
+    });
+
+    await tx.aIGenerationJob.create({
+      data: {
+        tripId: trip.id,
+        userId,
+        idempotencyKey: randomUUID(),
+        status: "done",
+        promptInput: JSON.parse(JSON.stringify(input)),
+        completedAt: new Date(),
       },
     });
 
@@ -94,6 +107,23 @@ export async function replaceTripFromAi(tripId: string, aiResult: TripResponse) 
   });
 }
 
+export async function recordCompletedTripGeneration(
+  tripId: string,
+  userId: string,
+  input: TripInput
+) {
+  await prisma.aIGenerationJob.create({
+    data: {
+      tripId,
+      userId,
+      idempotencyKey: randomUUID(),
+      status: "done",
+      promptInput: JSON.parse(JSON.stringify(input)),
+      completedAt: new Date(),
+    },
+  });
+}
+
 export async function getTripsByUser(userId: string) {
   return await prisma.trip.findMany({
     where: { userId },
@@ -125,6 +155,22 @@ export async function getTripById(tripId: string, userId: string) {
       },
     },
   });
+}
+
+export async function getLatestTripGenerationInput(
+  tripId: string,
+  userId: string
+): Promise<TripInput | null> {
+  const job = await prisma.aIGenerationJob.findFirst({
+    where: { tripId, userId },
+    orderBy: { createdAt: "desc" },
+    select: { promptInput: true },
+  });
+
+  if (!job) return null;
+
+  const parsed = TripInputSchema.safeParse(job.promptInput);
+  return parsed.success ? parsed.data : null;
 }
 
 export async function updateTripEvents(

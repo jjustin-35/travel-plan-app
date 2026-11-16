@@ -6,6 +6,7 @@ const mockGenerateTrip = vi.fn();
 const mockCreateTripWithDays = vi.fn();
 const mockReplaceTripFromAi = vi.fn();
 const mockGetTripById = vi.fn();
+const mockRecordCompletedTripGeneration = vi.fn();
 
 vi.mock("@/lib/services/ai-generation.service", () => ({
   generateTrip: (...args: unknown[]) => mockGenerateTrip(...args),
@@ -15,6 +16,8 @@ vi.mock("@/lib/db/trip.repository", () => ({
   createTripWithDays: (...args: unknown[]) => mockCreateTripWithDays(...args),
   replaceTripFromAi: (...args: unknown[]) => mockReplaceTripFromAi(...args),
   getTripById: (...args: unknown[]) => mockGetTripById(...args),
+  recordCompletedTripGeneration: (...args: unknown[]) =>
+    mockRecordCompletedTripGeneration(...args),
 }));
 
 describe("trip.service", () => {
@@ -49,6 +52,11 @@ describe("trip.service", () => {
 
     expect(mockGenerateTrip).toHaveBeenCalledWith(validTripInput);
     expect(mockReplaceTripFromAi).toHaveBeenCalledWith("trip-1", aiResult);
+    expect(mockRecordCompletedTripGeneration).toHaveBeenCalledWith(
+      "trip-1",
+      "user-1",
+      validTripInput
+    );
     expect(mockGetTripById).toHaveBeenCalledWith("trip-1", "user-1");
     expect(result).toEqual(savedTrip);
   });
