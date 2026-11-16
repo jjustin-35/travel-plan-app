@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
+
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getTripsByUser } from "@/lib/db/trip.repository";
 import { TripInputSchema } from "@/lib/schemas/trip.schema";
-import { ZodError } from "zod";
-import { prisma } from "@/lib/db/prisma";
 
 const BULLMQ_ENABLED = process.env.TRIP_REDIS_STORAGE_REDIS_URL !== undefined && process.env.TRIP_REDIS_STORAGE_REDIS_URL !== "";
 
@@ -37,22 +37,9 @@ export async function POST(request: NextRequest) {
   }
 
   if (BULLMQ_ENABLED) {
-    const trip = await prisma.trip.create({
-      data: {
-        userId: user.id,
-        title: `${input.destination} 行程`,
-        destination: input.destination,
-        peopleCount: input.peopleCount,
-        tripType: input.tripType,
-        startDate: new Date(input.startDate),
-        endDate: new Date(input.endDate),
-        status: "generating",
-      },
-    });
-
     try {
-      const { enqueueTripGeneration } = await import("@/lib/queue/enqueue");
-      const jobId = await enqueueTripGeneration(trip.id, user.id, input);
+      const { createQueuedTripGeneration } = await import("@/lib/queue/enqueue");
+      const { trip, jobId } = await createQueuedTripGeneration(user.id, input);
       return NextResponse.json({ trip, jobId, async: true }, { status: 202 });
     } catch (err) {
       console.error("POST /api/trips queue error:", err);
