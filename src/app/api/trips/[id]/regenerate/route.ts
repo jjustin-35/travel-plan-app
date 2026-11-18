@@ -7,7 +7,9 @@ import { TripInputSchema } from "@/lib/schemas/trip.schema";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
-const BULLMQ_ENABLED = process.env.REDIS_URL !== undefined && process.env.REDIS_URL !== "";
+const BULLMQ_ENABLED =
+  process.env.TRIP_REDIS_STORAGE_REDIS_URL !== undefined &&
+  process.env.TRIP_REDIS_STORAGE_REDIS_URL !== "";
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
