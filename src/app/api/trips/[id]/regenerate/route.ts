@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getTripById } from "@/lib/db/trip.repository";
 import { prisma } from "@/lib/db/prisma";
+import { buildDefaultRegenerateInput } from "@/lib/regenerate-trip-input";
 import { TripInputSchema } from "@/lib/schemas/trip.schema";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -27,15 +28,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   let input;
   try {
     input = TripInputSchema.parse(
-      body.input ?? {
-        destination: existing.destination,
-        startDate: existing.startDate.toISOString().split("T")[0],
-        endDate: existing.endDate.toISOString().split("T")[0],
-        days: existing.days.length,
-        nights: Math.max(existing.days.length - 1, 0),
-        peopleCount: existing.peopleCount,
-        tripType: existing.tripType,
-      }
+      body.input ?? buildDefaultRegenerateInput(existing)
     );
   } catch (err) {
     if (err instanceof ZodError) {
